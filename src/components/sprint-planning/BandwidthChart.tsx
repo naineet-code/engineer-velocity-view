@@ -1,6 +1,8 @@
 
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ChartContainer, ChartConfig } from '@/components/ui/chart';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Developer } from '@/pages/SprintCreation';
 
 interface BandwidthChartProps {
@@ -8,64 +10,59 @@ interface BandwidthChartProps {
 }
 
 export const BandwidthChart: React.FC<BandwidthChartProps> = ({ developers }) => {
+  const chartData = developers.map(dev => {
+    const assignedEffort = dev.assignedTickets.reduce((sum, ticket) => sum + ticket.effort, 0);
+    const utilization = Math.round((assignedEffort / dev.availableEffort) * 100);
+    
+    return {
+      name: dev.name.split(' ')[0], // First name only for chart
+      assigned: assignedEffort,
+      available: dev.availableEffort,
+      utilization
+    };
+  });
+
+  const chartConfig: ChartConfig = {
+    assigned: { label: "Assigned", color: "#3B82F6" },
+    available: { label: "Available", color: "#E5E7EB" }
+  };
+
   return (
-    <Card>
+    <Card className="bg-white rounded-2xl border border-gray-200 shadow-sm">
       <CardHeader>
-        <CardTitle className="text-lg">Bandwidth Utilization</CardTitle>
+        <CardTitle className="text-lg font-semibold text-gray-900">Bandwidth Chart</CardTitle>
       </CardHeader>
       
-      <CardContent className="space-y-4">
-        {developers.map((developer) => {
-          const assignedEffort = developer.assignedTickets.reduce((sum, ticket) => sum + ticket.effort, 0);
-          const utilization = (assignedEffort / developer.availableEffort) * 100;
-          const isOverloaded = assignedEffort > developer.availableEffort;
-          
-          return (
-            <div key={developer.id} className="space-y-2">
-              <div className="flex justify-between items-center">
-                <span className="text-sm font-medium">{developer.name}</span>
-                <span className={`text-sm ${isOverloaded ? 'text-red-600' : 'text-gray-600'}`}>
-                  {assignedEffort}d / {developer.availableEffort}d ({Math.round(utilization)}%)
-                </span>
-              </div>
-              
-              <div className="w-full bg-gray-200 rounded-full h-3">
-                <div
-                  className={`h-3 rounded-full transition-all duration-300 ${
-                    isOverloaded 
-                      ? 'bg-red-500' 
-                      : utilization > 80 
-                        ? 'bg-yellow-500' 
-                        : 'bg-green-500'
-                  }`}
-                  style={{ 
-                    width: `${Math.min(utilization, 100)}%` 
-                  }}
-                />
-                {isOverloaded && (
-                  <div 
-                    className="h-3 bg-red-500 opacity-50 rounded-full -mt-3"
-                    style={{ 
-                      width: `${Math.min((assignedEffort / developer.availableEffort) * 100, 200)}%` 
-                    }}
-                  />
-                )}
-              </div>
-              
-              {isOverloaded && (
-                <p className="text-xs text-red-600">
-                  Overloaded by {assignedEffort - developer.availableEffort} days
-                </p>
-              )}
-            </div>
-          );
-        })}
+      <CardContent>
+        <ChartContainer config={chartConfig}>
+          <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" />
+            <XAxis dataKey="name" />
+            <YAxis />
+            <Tooltip 
+              formatter={(value, name) => [
+                `${value}d`, 
+                name === 'assigned' ? 'Assigned' : 'Available'
+              ]}
+            />
+            <Bar dataKey="available" fill="#E5E7EB" />
+            <Bar dataKey="assigned" fill="#3B82F6" />
+          </BarChart>
+        </ChartContainer>
         
-        {developers.length === 0 && (
-          <p className="text-sm text-gray-500 text-center py-4">
-            No developers available
-          </p>
-        )}
+        <div className="mt-4 space-y-2">
+          {chartData.map((dev, index) => (
+            <div key={index} className="flex justify-between items-center text-sm">
+              <span className="text-gray-600">{dev.name}</span>
+              <span className={`font-medium ${
+                dev.utilization > 100 ? 'text-red-600' :
+                dev.utilization > 80 ? 'text-orange-600' : 'text-green-600'
+              }`}>
+                {dev.utilization}%
+              </span>
+            </div>
+          ))}
+        </div>
       </CardContent>
     </Card>
   );
