@@ -41,11 +41,11 @@ const navigationItems = [
     disabled: false
   },
   {
-    name: "Sprint Creation",
-    href: "/sprint-creation",
+    name: "Sprint Planning",
+    href: "/sprint-planning",
     icon: Plus,
-    description: "Create new sprints",
-    disabled: true
+    description: "Create and plan new sprints",
+    disabled: false
   }
 ];
 

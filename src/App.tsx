@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -10,6 +9,7 @@ import SprintAnalysis from "./pages/SprintAnalysis";
 import DeveloperView from "./pages/DeveloperView";
 import TicketView from "./pages/TicketView";
 import NotFound from "./pages/NotFound";
+import SprintCreation from "./pages/SprintCreation";
 
 const queryClient = new QueryClient();
 
@@ -27,6 +27,7 @@ const App = () => (
             <Route path="/developer-view" element={<DeveloperView />} />
             <Route path="/ticket-view" element={<TicketView />} />
             <Route path="/ticket-view/:ticketId" element={<TicketView />} />
+            <Route path="/sprint-planning" element={<SprintCreation />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
