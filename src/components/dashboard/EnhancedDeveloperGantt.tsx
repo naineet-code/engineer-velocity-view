@@ -13,11 +13,11 @@ interface Ticket {
   isBlocked: boolean;
   overdueDays: number;
   blockedDays: number;
-  eta: string;
-  projectedCompletion: string;
-  isRisk: boolean;
-  startDate: Date;
-  endDate: Date;
+  eta?: string;
+  projectedCompletion?: string;
+  isRisk?: boolean;
+  startDate?: Date;
+  endDate?: Date;
 }
 
 interface Developer {
@@ -32,21 +32,39 @@ interface EnhancedDeveloperGanttProps {
 
 export const EnhancedDeveloperGantt = ({ developers, onTicketClick }: EnhancedDeveloperGanttProps) => {
   const getStatusColor = (ticket: Ticket) => {
-    if (ticket.isRisk) return 'bg-red-500';
-    if (ticket.status === 'blocked') return 'bg-amber-500';
+    if (ticket.isRisk || ticket.status === 'overdue') return 'bg-red-500';
+    if (ticket.status === 'blocked' || ticket.isBlocked) return 'bg-amber-500';
     if (ticket.status === 'not-started') return 'bg-gray-400';
     return 'bg-green-500';
   };
 
   const getStatusText = (ticket: Ticket) => {
-    if (ticket.isRisk) return 'text-red-600';
-    if (ticket.status === 'blocked') return 'text-amber-600';
+    if (ticket.isRisk || ticket.status === 'overdue') return 'text-red-600';
+    if (ticket.status === 'blocked' || ticket.isBlocked) return 'text-amber-600';
     if (ticket.status === 'not-started') return 'text-gray-600';
     return 'text-green-600';
   };
 
-  const formatDate = (dateStr: string) => {
+  const formatDate = (dateStr?: string) => {
+    if (!dateStr) return 'TBD';
     return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
+
+  const getProjectedCompletion = (ticket: Ticket) => {
+    // Simple simulation: add effort days to current date
+    const today = new Date();
+    const projected = new Date(today);
+    projected.setDate(today.getDate() + ticket.effortDays);
+    return projected.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
+
+  const getETA = (ticket: Ticket) => {
+    if (ticket.eta) return ticket.eta;
+    // Fallback: simulate ETA based on effort
+    const today = new Date();
+    const eta = new Date(today);
+    eta.setDate(today.getDate() + ticket.effortDays + 2);
+    return eta.toISOString().split('T')[0];
   };
 
   return (
@@ -60,10 +78,10 @@ export const EnhancedDeveloperGantt = ({ developers, onTicketClick }: EnhancedDe
                   <h3 className="font-semibold text-gray-900">{dev.name}</h3>
                   <div className="flex items-center space-x-4">
                     <Badge variant="outline" className="text-xs">
-                      {dev.tickets.filter(t => t.isRisk).length} at risk
+                      {dev.tickets.filter(t => t.isRisk || t.status === 'overdue').length} at risk
                     </Badge>
                     <Badge variant="secondary" className="text-xs">
-                      {dev.tickets.filter(t => t.isBlocked).length} blocked
+                      {dev.tickets.filter(t => t.isBlocked || t.status === 'blocked').length} blocked
                     </Badge>
                   </div>
                 </div>
@@ -82,7 +100,7 @@ export const EnhancedDeveloperGantt = ({ developers, onTicketClick }: EnhancedDe
                             <div className="flex items-center space-x-2">
                               <div className={`h-6 rounded px-3 flex items-center space-x-2 ${getStatusColor(ticket)} text-white text-sm min-w-0`}>
                                 <span className="truncate">{ticket.title}</span>
-                                {ticket.isBlocked && (
+                                {(ticket.isBlocked || ticket.status === 'blocked') && (
                                   <AlertCircle size={14} className="flex-shrink-0" />
                                 )}
                               </div>
@@ -96,10 +114,10 @@ export const EnhancedDeveloperGantt = ({ developers, onTicketClick }: EnhancedDe
                           </div>
                           
                           <div className={`text-xs font-medium ${getStatusText(ticket)} flex items-center space-x-1`}>
-                            {ticket.isRisk && <Clock size={12} />}
+                            {(ticket.isRisk || ticket.status === 'overdue') && <Clock size={12} />}
                             <span>
-                              {ticket.isRisk ? `${ticket.overdueDays}d over` : 
-                               ticket.isBlocked ? `${ticket.blockedDays}d blocked` : 
+                              {ticket.isRisk || ticket.status === 'overdue' ? `${ticket.overdueDays}d over` : 
+                               ticket.isBlocked || ticket.status === 'blocked' ? `${ticket.blockedDays}d blocked` : 
                                'on track'}
                             </span>
                           </div>
@@ -109,13 +127,13 @@ export const EnhancedDeveloperGantt = ({ developers, onTicketClick }: EnhancedDe
                         <div className="space-y-2">
                           <div className="font-semibold">{ticket.title}</div>
                           <div className="text-sm space-y-1">
-                            <div>ETA: {formatDate(ticket.eta)}</div>
-                            <div>Projected: {formatDate(ticket.projectedCompletion)}</div>
+                            <div>ETA: {formatDate(getETA(ticket))}</div>
+                            <div>Projected: {getProjectedCompletion(ticket)}</div>
                             <div>Effort: {ticket.effortDays} days</div>
-                            {ticket.isBlocked && (
+                            {(ticket.isBlocked || ticket.status === 'blocked') && (
                               <div className="text-amber-600">Blocked for {ticket.blockedDays} days</div>
                             )}
-                            {ticket.isRisk && (
+                            {(ticket.isRisk || ticket.status === 'overdue') && (
                               <div className="text-red-600">⚠️ Will miss ETA by {ticket.overdueDays} days</div>
                             )}
                           </div>
