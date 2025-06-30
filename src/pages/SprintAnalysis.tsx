@@ -5,16 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ChartContainer, ChartConfig } from "@/components/ui/chart";
 import { PieChart, Pie, Cell, ResponsiveContainer, ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, BarChart, Bar } from "recharts";
-import { Download, TrendingUp, AlertTriangle, Clock, Target, Users, Calendar } from "lucide-react";
+import { Download, TrendingUp, AlertTriangle, Clock, Target, Users, Calendar, FileText } from "lucide-react";
 import { AIRecommendationsPanel } from "@/components/dashboard/AIRecommendationsPanel";
-import { CSVUpload } from "@/components/shared/CSVUpload";
+import { NoDataFallback } from "@/components/shared/NoDataFallback";
 import { useData } from "@/contexts/DataContext";
 import { KPICalculator } from "@/utils/kpiCalculations";
-import { useNavigate } from "react-router-dom";
 
 const SprintAnalysis = () => {
   const { tickets } = useData();
-  const navigate = useNavigate();
   const [compareMode, setCompareMode] = useState(false);
   
   const calculator = useMemo(() => new KPICalculator(tickets), [tickets]);
@@ -31,7 +29,7 @@ const SprintAnalysis = () => {
     return {
       kpis: {
         completed: completedTickets.length,
-        dropped: 0, // Would need sprint metadata to calculate properly
+        dropped: 0,
         blocked: blockedTickets.length,
         etaMissed: riskTickets.length,
         avgCycleTime: calculator.getAverageDaysBlocked()
@@ -52,10 +50,10 @@ const SprintAnalysis = () => {
 
   // Drop reasons (would need more data in CSV for accurate calculation)
   const dropReasons = [
-    { name: "No AC", value: 40, color: "#ff6b6b" },
-    { name: "Client Pullback", value: 30, color: "#4ecdc4" },
-    { name: "Deprioritized", value: 20, color: "#45b7d1" },
-    { name: "Blocked Too Long", value: 10, color: "#96ceb4" }
+    { name: "No AC", value: 40, color: "#ef4444" },
+    { name: "Client Pullback", value: 30, color: "#f97316" },
+    { name: "Deprioritized", value: 20, color: "#3b82f6" },
+    { name: "Blocked Too Long", value: 10, color: "#10b981" }
   ];
 
   // ETA vs Actual scatter plot data
@@ -65,7 +63,7 @@ const SprintAnalysis = () => {
       const isRisk = riskTickets.some(rt => rt.ticket_id === ticket.ticket_id);
       return {
         estimated: ticket.effort_points,
-        actual: ticket.effort_points + (isRisk ? 2 : 0), // Mock actual vs estimated
+        actual: ticket.effort_points + (isRisk ? 2 : 0),
         name: ticket.ticket_id,
         status: ticket.status === 'Closed' ? 'completed' : isRisk ? 'missed' : 'ontrack'
       };
@@ -76,10 +74,10 @@ const SprintAnalysis = () => {
   const cycleTimeData = useMemo(() => {
     const distribution = calculator.getTimeDistribution();
     return [
-      { stage: "Development", days: Math.round(distribution.Development * 10) / 10 },
-      { stage: "Blocked", days: Math.round(distribution.Blocked * 10) / 10 },
-      { stage: "Review", days: Math.round(distribution.Review * 10) / 10 },
-      { stage: "Release", days: Math.round(distribution.Release * 10) / 10 }
+      { stage: "Development", days: Math.round(distribution.Development * 10) / 10, color: "#3b82f6" },
+      { stage: "Blocked", days: Math.round(distribution.Blocked * 10) / 10, color: "#ef4444" },
+      { stage: "Review", days: Math.round(distribution.Review * 10) / 10, color: "#f59e0b" },
+      { stage: "Release", days: Math.round(distribution.Release * 10) / 10, color: "#10b981" }
     ];
   }, [calculator]);
 
@@ -121,162 +119,192 @@ Generated on: ${new Date().toLocaleDateString()}
 
   if (tickets.length === 0) {
     return (
-      <div className="container mx-auto p-6">
-        <div className="text-center">
-          <h1 className="text-3xl font-bold mb-6">Sprint Analysis</h1>
-          <CSVUpload />
-          <p className="text-gray-600 mt-4">Upload your CSV file to see sprint analysis.</p>
+      <div className="page-container">
+        <div className="section-header">
+          <h1 className="section-title">Sprint Analysis</h1>
+          <p className="section-subtitle">Analyze sprint performance and identify improvement opportunities</p>
         </div>
+        <NoDataFallback />
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="page-container space-y-8">
+      {/* Header Section */}
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Sprint Analysis</h1>
-        <div className="flex gap-2">
+        <div className="section-header">
+          <h1 className="section-title">Sprint Analysis</h1>
+          <p className="section-subtitle">Analyze sprint performance and identify improvement opportunities</p>
+        </div>
+        <div className="flex items-center space-x-3">
           <Button
             variant={compareMode ? "default" : "outline"}
             onClick={() => setCompareMode(!compareMode)}
+            className="button-outline"
           >
+            <TrendingUp className="h-4 w-4 mr-2" />
             Compare Sprints
           </Button>
-          <Button onClick={generateRetrospectiveReport} className="flex items-center gap-2">
-            <Download className="h-4 w-4" />
+          <Button onClick={generateRetrospectiveReport} className="button-primary">
+            <Download className="h-4 w-4 mr-2" />
             Export Report
           </Button>
         </div>
       </div>
 
-      <AIRecommendationsPanel sprintData={sprintData} />
-
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <Target className="h-4 w-4 text-green-600" />
-              Completed
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">{sprintData.kpis.completed}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-red-600" />
-              Dropped
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600">{sprintData.kpis.dropped}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <Clock className="h-4 w-4 text-amber-600" />
-              Blocked
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-amber-600">{sprintData.kpis.blocked}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-blue-600" />
-              ETA Missed
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{sprintData.kpis.etaMissed}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <Calendar className="h-4 w-4 text-purple-600" />
-              Avg Cycle Time
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-purple-600">{sprintData.kpis.avgCycleTime}d</div>
-          </CardContent>
-        </Card>
+      {/* AI Recommendations */}
+      <div className="fade-in">
+        <AIRecommendationsPanel sprintData={sprintData} />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* KPI Cards */}
+      <div className="grid grid-5 grid-layout fade-in">
+        <div className="kpi-card">
+          <div className="kpi-card-header">
+            <div>
+              <div className="kpi-card-title">Completed</div>
+              <div className="kpi-card-value text-green-600">{sprintData.kpis.completed}</div>
+            </div>
+            <div className="kpi-card-icon bg-green-100">
+              <Target className="h-6 w-6 text-green-600" />
+            </div>
+          </div>
+        </div>
+
+        <div className="kpi-card">
+          <div className="kpi-card-header">
+            <div>
+              <div className="kpi-card-title">Dropped</div>
+              <div className="kpi-card-value text-red-600">{sprintData.kpis.dropped}</div>
+            </div>
+            <div className="kpi-card-icon bg-red-100">
+              <AlertTriangle className="h-6 w-6 text-red-600" />
+            </div>
+          </div>
+        </div>
+
+        <div className="kpi-card">
+          <div className="kpi-card-header">
+            <div>
+              <div className="kpi-card-title">Blocked</div>
+              <div className="kpi-card-value text-amber-600">{sprintData.kpis.blocked}</div>
+            </div>
+            <div className="kpi-card-icon bg-amber-100">
+              <Clock className="h-6 w-6 text-amber-600" />
+            </div>
+          </div>
+        </div>
+
+        <div className="kpi-card">
+          <div className="kpi-card-header">
+            <div>
+              <div className="kpi-card-title">ETA Missed</div>
+              <div className="kpi-card-value text-blue-600">{sprintData.kpis.etaMissed}</div>
+            </div>
+            <div className="kpi-card-icon bg-blue-100">
+              <TrendingUp className="h-6 w-6 text-blue-600" />
+            </div>
+          </div>
+        </div>
+
+        <div className="kpi-card">
+          <div className="kpi-card-header">
+            <div>
+              <div className="kpi-card-title">Avg Cycle Time</div>
+              <div className="kpi-card-value text-purple-600">{sprintData.kpis.avgCycleTime}d</div>
+            </div>
+            <div className="kpi-card-icon bg-purple-100">
+              <Calendar className="h-6 w-6 text-purple-600" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Charts Grid */}
+      <div className="grid grid-2 grid-layout fade-in">
         {/* Cycle Time Breakdown */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Cycle Time Breakdown</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ChartContainer config={chartConfig}>
-              <BarChart data={cycleTimeData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="stage" />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="days" fill="#8884d8" />
-              </BarChart>
-            </ChartContainer>
-          </CardContent>
-        </Card>
+        <div className="chart-container">
+          <div className="chart-header">
+            <h3 className="chart-title">Cycle Time Breakdown</h3>
+            <p className="chart-subtitle">Time spent in each stage of development</p>
+          </div>
+          <ChartContainer config={chartConfig}>
+            <BarChart data={cycleTimeData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+              <XAxis dataKey="stage" tick={{ fontSize: 12 }} />
+              <YAxis tick={{ fontSize: 12 }} />
+              <Tooltip 
+                contentStyle={{ 
+                  backgroundColor: 'white', 
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '8px',
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                }}
+              />
+              <Bar dataKey="days" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ChartContainer>
+        </div>
 
         {/* Drop Reasons */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Dropped Ticket Reasons</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ChartContainer config={chartConfig}>
-              <PieChart>
-                <Pie
-                  data={dropReasons}
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={80}
-                  dataKey="value"
-                  nameKey="name"
-                >
-                  {dropReasons.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ChartContainer>
-          </CardContent>
-        </Card>
+        <div className="chart-container">
+          <div className="chart-header">
+            <h3 className="chart-title">Dropped Ticket Reasons</h3>
+            <p className="chart-subtitle">Analysis of why tickets were dropped</p>
+          </div>
+          <ChartContainer config={chartConfig}>
+            <PieChart>
+              <Pie
+                data={dropReasons}
+                cx="50%"
+                cy="50%"
+                outerRadius={100}
+                dataKey="value"
+                nameKey="name"
+                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+              >
+                {dropReasons.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.color} />
+                ))}
+              </Pie>
+              <Tooltip 
+                contentStyle={{ 
+                  backgroundColor: 'white', 
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '8px',
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                }}
+              />
+            </PieChart>
+          </ChartContainer>
+        </div>
       </div>
 
       {/* ETA vs Actual Scatter Plot */}
-      <Card>
-        <CardHeader>
-          <CardTitle>ETA vs Actual Delivery</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ChartContainer config={chartConfig}>
-            <ScatterChart data={etaVsActual} margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
-              <CartesianGrid />
-              <XAxis dataKey="estimated" name="Estimated" />
-              <YAxis dataKey="actual" name="Actual" />
-              <Tooltip cursor={{ strokeDasharray: '3 3' }} />
-              <Scatter dataKey="actual" fill="#8884d8" />
-            </ScatterChart>
-          </ChartContainer>
-        </CardContent>
-      </Card>
+      <div className="chart-container fade-in">
+        <div className="chart-header">
+          <h3 className="chart-title">ETA vs Actual Delivery</h3>
+          <p className="chart-subtitle">Comparison of estimated vs actual delivery times</p>
+        </div>
+        <ChartContainer config={chartConfig}>
+          <ScatterChart data={etaVsActual} margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+            <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+            <XAxis dataKey="estimated" name="Estimated" tick={{ fontSize: 12 }} />
+            <YAxis dataKey="actual" name="Actual" tick={{ fontSize: 12 }} />
+            <Tooltip 
+              cursor={{ strokeDasharray: '3 3' }}
+              contentStyle={{ 
+                backgroundColor: 'white', 
+                border: '1px solid #e5e7eb',
+                borderRadius: '8px',
+                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+              }}
+            />
+            <Scatter dataKey="actual" fill="#3b82f6" />
+          </ScatterChart>
+        </ChartContainer>
+      </div>
     </div>
   );
 };
