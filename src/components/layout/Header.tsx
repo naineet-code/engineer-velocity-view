@@ -1,7 +1,5 @@
 
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { CSVUpload } from "@/components/shared/CSVUpload";
 import { StandupSummaryExporter } from "@/components/shared/StandupSummaryExporter";
 import { useData } from "@/contexts/DataContext";
 import { BarChart3, Info } from "lucide-react";
@@ -31,7 +29,6 @@ export const Header = () => {
         
         <div className="flex items-center space-x-4">
           {tickets.length > 0 && <StandupSummaryExporter />}
-          <CSVUpload />
           {tickets.length > 0 && (
             <Badge variant="secondary" className="text-xs">
               ✅ {tickets.length} tickets loaded

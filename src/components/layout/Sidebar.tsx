@@ -5,7 +5,8 @@ import {
   TrendingUp, 
   User, 
   Ticket, 
-  Plus
+  Plus,
+  Upload
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -39,6 +40,12 @@ const navigationItems = [
     href: "/sprint-planning",
     icon: Plus,
     description: "Create and plan new sprints"
+  },
+  {
+    name: "Upload Data",
+    href: "/upload",
+    icon: Upload,
+    description: "Upload CSV ticket data"
   }
 ];
 

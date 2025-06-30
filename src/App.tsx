@@ -11,6 +11,7 @@ import Index from "./pages/Index";
 import SprintAnalysis from "./pages/SprintAnalysis";
 import DeveloperView from "./pages/DeveloperView";
 import TicketView from "./pages/TicketView";
+import Upload from "./pages/Upload";
 import NotFound from "./pages/NotFound";
 import SprintCreation from "./pages/SprintCreation";
 
@@ -36,6 +37,7 @@ const App = () => (
                   <Route path="/ticket-view" element={<TicketView />} />
                   <Route path="/ticket-view/:ticketId" element={<TicketView />} />
                   <Route path="/sprint-planning" element={<SprintCreation />} />
+                  <Route path="/upload" element={<Upload />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </div>
