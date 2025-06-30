@@ -1,14 +1,15 @@
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { FilterToolbar } from "@/components/dashboard/FilterToolbar";
 import { DynamicKPICards } from "@/components/dashboard/DynamicKPICards";
-import { EnhancedDeveloperGantt } from "@/components/dashboard/EnhancedDeveloperGantt";
+import { LiveGanttChart } from "@/components/dashboard/LiveGanttChart";
 import { InteractiveRiskCharts } from "@/components/dashboard/InteractiveRiskCharts";
 import { EnhancedActiveTicketsTable } from "@/components/dashboard/EnhancedActiveTicketsTable";
 import { InsightStrip } from "@/components/dashboard/InsightStrip";
 import { AgendaPanel } from "@/components/dashboard/AgendaPanel";
 import { mockDashboardData } from "@/data/mockData";
 import { useToast } from "@/hooks/use-toast";
+import { simulationEngine } from "@/utils/ganttSimulation";
 
 const Index = () => {
   const { toast } = useToast();
@@ -17,65 +18,85 @@ const Index = () => {
   const [selectedBlockerSource, setSelectedBlockerSource] = useState('all');
   const [lastRefresh, setLastRefresh] = useState(new Date());
   const [agendaTickets, setAgendaTickets] = useState<string[]>([]);
+  const [viewMode, setViewMode] = useState<'today' | 'week'>('today');
 
-  // Derive data from mockData
+  // Real-time computed data using simulation engine
+  const simulatedData = useMemo(() => {
+    console.log('🚀 Running real-time dashboard simulation...');
+    
+    const simulatedDevelopers = mockDashboardData.developers.map(dev => 
+      simulationEngine.simulateDeveloperQueue(dev)
+    );
+    
+    const allSimulatedTickets = simulatedDevelopers.flatMap(dev => dev.tickets);
+    
+    return {
+      developers: simulatedDevelopers,
+      tickets: allSimulatedTickets,
+      insights: simulationEngine.generateInsights(simulatedDevelopers)
+    };
+  }, [mockDashboardData, lastRefresh]);
+
+  // Derive data from simulation
   const developers = mockDashboardData.developers.map(dev => dev.name);
   const blockerSources = mockDashboardData.blockersBySource.map(b => b.name);
 
-  // Filter tickets based on current filters
-  const filteredTickets = mockDashboardData.activeTickets.filter(ticket => {
-    if (showFilter === 'blocked' && ticket.daysBlocked === 0) return false;
-    if (showFilter === 'eta-risk' && !ticket.isRisk) return false;
-    if (selectedDeveloper !== 'all' && ticket.owner !== selectedDeveloper) return false;
-    if (selectedBlockerSource !== 'all' && ticket.blockedBy !== selectedBlockerSource) return false;
-    return true;
-  });
+  // Enhanced filtering with simulation data
+  const filteredTickets = useMemo(() => {
+    let tickets = [...simulatedData.tickets];
+    
+    if (showFilter === 'blocked') tickets = tickets.filter(t => t.isBlocked);
+    if (showFilter === 'eta-risk') tickets = tickets.filter(t => t.isRisk);
+    if (selectedDeveloper !== 'all') tickets = tickets.filter(t => t.owner === selectedDeveloper);
+    if (selectedBlockerSource !== 'all') tickets = tickets.filter(t => t.blockedBy === selectedBlockerSource);
+    
+    return tickets;
+  }, [simulatedData.tickets, showFilter, selectedDeveloper, selectedBlockerSource]);
 
-  // Filter developers based on current filters
-  const filteredDevelopers = mockDashboardData.developers.filter(dev => {
-    if (selectedDeveloper !== 'all' && dev.name !== selectedDeveloper) return false;
-    return true;
-  }).map(dev => ({
-    ...dev,
-    tickets: dev.tickets.filter(ticket => {
-      if (showFilter === 'blocked' && !ticket.isBlocked) return false;
-      if (showFilter === 'eta-risk' && ticket.status !== 'overdue') return false;
-      return true;
-    })
-  }));
-
-  // Calculate dynamic KPIs
-  const kpiData = {
-    blockedTickets: mockDashboardData.activeTickets.filter(t => t.daysBlocked > 0).length,
-    avgDaysBlocked: mockDashboardData.activeTickets
-      .filter(t => t.daysBlocked > 0)
-      .reduce((sum, t) => sum + t.daysBlocked, 0) / 
-      Math.max(mockDashboardData.activeTickets.filter(t => t.daysBlocked > 0).length, 1),
-    etaRiskTickets: mockDashboardData.activeTickets.filter(t => t.isRisk).length,
-    devsWithRisk: new Set(mockDashboardData.activeTickets.filter(t => t.isRisk).map(t => t.owner)).size,
-    ticketsClosed7d: mockDashboardData.kpis.ticketsClosed7d,
-    blockedBreakdown: mockDashboardData.activeTickets
+  // Enhanced KPI calculation with simulation data
+  const kpiData = useMemo(() => {
+    const blockedTickets = simulatedData.tickets.filter(t => t.isBlocked).length;
+    const avgDaysBlocked = simulatedData.tickets
+      .filter(t => t.isBlocked)
+      .reduce((sum, t) => sum + t.daysBlocked, 0) / Math.max(blockedTickets, 1);
+    
+    const etaRiskTickets = simulatedData.tickets.filter(t => t.isRisk).length;
+    const devsWithRisk = new Set(simulatedData.tickets.filter(t => t.isRisk).map(t => t.owner)).size;
+    
+    const blockedBreakdown = simulatedData.tickets
       .filter(t => t.blockedBy)
       .reduce((acc: { [key: string]: number }, t) => {
         acc[t.blockedBy!] = (acc[t.blockedBy!] || 0) + 1;
         return acc;
-      }, {})
-  };
+      }, {});
+
+    return {
+      blockedTickets,
+      avgDaysBlocked: Math.round(avgDaysBlocked * 10) / 10,
+      etaRiskTickets,
+      devsWithRisk,
+      ticketsClosed7d: mockDashboardData.kpis.ticketsClosed7d,
+      blockedBreakdown
+    };
+  }, [simulatedData]);
 
   const handleRefresh = useCallback(() => {
     setLastRefresh(new Date());
     toast({
-      title: "Data Refreshed",
-      description: "Dashboard data has been updated with latest information.",
+      title: "Live Data Refreshed",
+      description: "Dashboard simulation updated with latest projections.",
     });
   }, [toast]);
 
   const handleTicketClick = useCallback((ticketId: string) => {
+    const ticket = simulatedData.tickets.find(t => t.id === ticketId);
     toast({
       title: "Ticket Details",
-      description: `Opening details for ${ticketId}`,
+      description: ticket ? 
+        `${ticket.title} - ETA: ${ticket.etaDate.toLocaleDateString()} | Projected: ${ticket.projectedEndDate.toLocaleDateString()}` :
+        `Opening details for ${ticketId}`,
     });
-  }, [toast]);
+  }, [simulatedData.tickets, toast]);
 
   const handleToggleAgenda = useCallback((ticketId: string) => {
     setAgendaTickets(prev => 
@@ -88,33 +109,44 @@ const Index = () => {
   const handleDeveloperClick = useCallback((developer: string) => {
     setSelectedDeveloper(developer);
     toast({
-      title: "Filter Applied",
-      description: `Showing tickets for ${developer}`,
+      title: "Live Filter Applied",
+      description: `Showing simulated queue for ${developer}`,
     });
   }, [toast]);
 
   const handleBlockerSourceClick = useCallback((source: string) => {
     setSelectedBlockerSource(source);
     toast({
-      title: "Filter Applied", 
+      title: "Live Filter Applied", 
       description: `Showing tickets blocked by ${source}`,
     });
   }, [toast]);
 
   const handleExportAgenda = useCallback(() => {
-    const agendaData = mockDashboardData.activeTickets
+    const agendaData = simulatedData.tickets
       .filter(t => agendaTickets.includes(t.id))
-      .map(t => `• ${t.id}: ${t.title} (${t.owner})${t.isRisk ? ' ⚠️' : ''}${t.daysBlocked > 0 ? ' 🚫' : ''}`)
+      .map(t => `• ${t.id}: ${t.title} (${t.owner})${t.isRisk ? ' ⚠️' : ''}${t.isBlocked ? ' 🚫' : ''}`)
       .join('\n');
     
-    navigator.clipboard.writeText(`Stand-up Agenda Items:\n${agendaData}`);
+    const insightsData = simulatedData.insights.map(insight => `📊 ${insight}`).join('\n');
+    
+    const fullAgenda = `Stand-up Agenda Items:\n${agendaData}\n\nKey Insights:\n${insightsData}`;
+    
+    navigator.clipboard.writeText(fullAgenda);
     toast({
-      title: "Agenda Copied",
-      description: "Stand-up agenda has been copied to clipboard",
+      title: "Live Agenda Copied",
+      description: "Stand-up agenda with live insights copied to clipboard",
     });
-  }, [agendaTickets, toast]);
+  }, [agendaTickets, simulatedData, toast]);
 
-  const agendaTicketData = mockDashboardData.activeTickets
+  // Create current filter object
+  const currentFilters = {
+    showFilter,
+    selectedDeveloper,
+    selectedBlockerSource
+  };
+
+  const agendaTicketData = simulatedData.tickets
     .filter(t => agendaTickets.includes(t.id))
     .map(t => ({
       id: t.id,
@@ -122,7 +154,7 @@ const Index = () => {
       owner: t.owner,
       isRisk: t.isRisk,
       daysBlocked: t.daysBlocked,
-      eta: t.eta
+      eta: t.etaDate.toISOString().split('T')[0]
     }));
 
   return (
@@ -130,11 +162,16 @@ const Index = () => {
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Team Pulse Dashboard</h1>
-          <p className="text-gray-600">Daily Engineering Stand-up • Live Status</p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            Team Pulse Dashboard 
+            <span className="text-lg font-normal text-green-600 ml-2">🔴 LIVE</span>
+          </h1>
+          <p className="text-gray-600">
+            Real-time Engineering Stand-up • Live Queue Simulation • Auto-updating Insights
+          </p>
         </div>
 
-        {/* Filter Toolbar */}
+        {/* Enhanced Filter Toolbar */}
         <FilterToolbar
           showFilter={showFilter}
           onShowFilterChange={setShowFilter}
@@ -148,15 +185,24 @@ const Index = () => {
           lastRefresh={lastRefresh}
         />
 
-        {/* Dynamic KPI Cards */}
+        {/* Live KPI Cards */}
         <DynamicKPICards kpiData={kpiData} />
 
-        {/* Enhanced Developer Gantt Chart */}
+        {/* Live Gantt Chart with Simulation */}
         <div className="bg-white rounded-lg shadow-sm border p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Developer Workload Gantt</h2>
-          <EnhancedDeveloperGantt 
-            developers={filteredDevelopers}
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold text-gray-900">
+              Live Developer Queue Simulation
+            </h2>
+            <div className="flex items-center space-x-2 text-sm text-gray-500">
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+              <span>Real-time projection</span>
+            </div>
+          </div>
+          <LiveGanttChart 
+            developers={mockDashboardData.developers}
             onTicketClick={handleTicketClick}
+            filters={currentFilters}
           />
         </div>
 
@@ -168,23 +214,26 @@ const Index = () => {
           onBlockerSourceClick={handleBlockerSourceClick}
         />
 
-        {/* Enhanced Active Tickets Table */}
+        {/* Enhanced Active Tickets Table with Live Data */}
         <div className="bg-white rounded-lg shadow-sm border p-6">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">
-            Active Risk & Blocked Tickets 
-            <span className="text-sm font-normal ml-2">({filteredTickets.length} shown)</span>
+            Live Risk & Blocked Tickets 
+            <span className="text-sm font-normal ml-2">({filteredTickets.length} projected)</span>
           </h2>
           <EnhancedActiveTicketsTable 
-            tickets={filteredTickets.map(t => ({ ...t, addedToAgenda: agendaTickets.includes(t.id) }))}
+            tickets={mockDashboardData.activeTickets.map(t => ({ 
+              ...t, 
+              addedToAgenda: agendaTickets.includes(t.id) 
+            }))}
             onTicketClick={handleTicketClick}
             onToggleAgenda={handleToggleAgenda}
           />
         </div>
 
-        {/* AI Insights */}
+        {/* Live AI Insights */}
         <InsightStrip />
 
-        {/* Agenda Panel */}
+        {/* Enhanced Agenda Panel */}
         <AgendaPanel
           tickets={agendaTicketData}
           onRemoveFromAgenda={handleToggleAgenda}
