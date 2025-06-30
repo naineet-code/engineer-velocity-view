@@ -1,4 +1,3 @@
-
 // Mock data for the Engineering Dashboard
 
 export interface MockTicket {
@@ -17,6 +16,7 @@ export interface MockTicket {
   owner?: string;
   rank?: number;
   projectedCompletion?: string;
+  effortRemaining?: number;
 }
 
 export interface MockDeveloper {
@@ -153,7 +153,7 @@ export const mockDevelopers: MockDeveloper[] = [
   }
 ];
 
-// Mock data for dashboard
+// Enhanced dashboard data with all required properties
 export const mockDashboardData = {
   developers: [
     {
@@ -168,7 +168,11 @@ export const mockDashboardData = {
           isBlocked: false,
           isRisk: false,
           rank: 1,
-          owner: "Sarah Chen"
+          owner: "Sarah Chen",
+          effortRemaining: 3,
+          projectedCompletion: "2024-01-14",
+          blockedBy: undefined,
+          daysBlocked: 0
         },
         {
           id: "TICKET-102", 
@@ -181,7 +185,10 @@ export const mockDashboardData = {
           blockedBy: "Success Team",
           isRisk: true,
           rank: 2,
-          owner: "Sarah Chen"
+          owner: "Sarah Chen",
+          effortRemaining: 2,
+          projectedCompletion: "2024-01-14",
+          daysBlocked: 2
         }
       ]
     },
@@ -197,7 +204,11 @@ export const mockDashboardData = {
           isBlocked: false,
           isRisk: false,
           rank: 1,
-          owner: "Mike Rodriguez"
+          owner: "Mike Rodriguez",
+          effortRemaining: 3,
+          projectedCompletion: "2024-01-17",
+          blockedBy: undefined,
+          daysBlocked: 0
         }
       ]
     },
@@ -213,24 +224,32 @@ export const mockDashboardData = {
           isBlocked: false,
           isRisk: false,
           rank: 1,
-          owner: "Alex Johnson"
+          owner: "Alex Johnson",
+          effortRemaining: 2,
+          projectedCompletion: "2024-01-19",
+          blockedBy: undefined,
+          daysBlocked: 0
         }
       ]
     }
   ],
   kpis: {
-    ticketsClosed7d: 8
+    ticketsClosed7d: 8,
+    blockedTickets: 2,
+    avgDaysBlocked: 1.5,
+    etaRiskTickets: 1,
+    devsWithRisk: 1
   },
   riskByDeveloper: [
-    { name: "Sarah", riskTickets: 1 },
-    { name: "Mike", riskTickets: 0 },
-    { name: "Alex", riskTickets: 0 },
-    { name: "Nidhi", riskTickets: 0 }
+    { name: "Sarah", riskCount: 1, riskTickets: 1 },
+    { name: "Mike", riskCount: 0, riskTickets: 0 },
+    { name: "Alex", riskCount: 0, riskTickets: 0 },
+    { name: "Nidhi", riskCount: 0, riskTickets: 0 }
   ],
   blockersBySource: [
-    { name: "Success Team", blockedTickets: 2, color: "#ef4444" },
-    { name: "Client", blockedTickets: 1, color: "#f59e0b" },
-    { name: "Infrastructure", blockedTickets: 1, color: "#3b82f6" }
+    { name: "Success Team", blockedTickets: 2, value: 2, color: "#ef4444" },
+    { name: "Client", blockedTickets: 1, value: 1, color: "#f59e0b" },
+    { name: "Infrastructure", blockedTickets: 1, value: 1, color: "#3b82f6" }
   ],
   activeTickets: [
     {
@@ -241,7 +260,11 @@ export const mockDashboardData = {
       eta: "2024-01-15",
       daysBlocked: 0,
       isRisk: false,
-      addedToAgenda: false
+      addedToAgenda: false,
+      effortRemaining: 3,
+      projectedCompletion: "2024-01-14",
+      blockedBy: undefined,
+      rank: 1
     },
     {
       id: "TICKET-102",
@@ -251,7 +274,11 @@ export const mockDashboardData = {
       eta: "2024-01-12",
       daysBlocked: 2,
       isRisk: true,
-      addedToAgenda: true
+      addedToAgenda: true,
+      effortRemaining: 2,
+      projectedCompletion: "2024-01-14",
+      blockedBy: "Success Team",
+      rank: 2
     },
     {
       id: "TICKET-201",
@@ -261,7 +288,25 @@ export const mockDashboardData = {
       eta: "2024-01-18",
       daysBlocked: 0,
       isRisk: false,
-      addedToAgenda: false
+      addedToAgenda: false,
+      effortRemaining: 3,
+      projectedCompletion: "2024-01-17",
+      blockedBy: undefined,
+      rank: 1
+    }
+  ],
+  insights: [
+    {
+      type: 'warning' as const,
+      message: 'Sarah Chen has 1 ticket at ETA risk due to blocking by Success Team'
+    },
+    {
+      type: 'info' as const,
+      message: 'Team velocity is 8 tickets closed in the last 7 days'
+    },
+    {
+      type: 'warning' as const,
+      message: '2 tickets currently blocked, average blocking time is 1.5 days'
     }
   ]
 };
