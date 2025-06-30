@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useMemo } from "react";
 import { FilterToolbar } from "@/components/dashboard/FilterToolbar";
 import { DynamicKPICards } from "@/components/dashboard/DynamicKPICards";
@@ -7,6 +6,7 @@ import { InteractiveRiskCharts } from "@/components/dashboard/InteractiveRiskCha
 import { EnhancedActiveTicketsTable } from "@/components/dashboard/EnhancedActiveTicketsTable";
 import { InsightStrip } from "@/components/dashboard/InsightStrip";
 import { AgendaPanel } from "@/components/dashboard/AgendaPanel";
+import { Phase2PlanningPanel } from "@/components/dashboard/Phase2PlanningPanel";
 import { mockDashboardData } from "@/data/mockData";
 import { useToast } from "@/hooks/use-toast";
 import { simulationEngine } from "@/utils/ganttSimulation";
@@ -19,6 +19,7 @@ const Index = () => {
   const [lastRefresh, setLastRefresh] = useState(new Date());
   const [agendaTickets, setAgendaTickets] = useState<string[]>([]);
   const [viewMode, setViewMode] = useState<'today' | 'week'>('today');
+  const [showPhase2Panel, setShowPhase2Panel] = useState(false);
 
   // Real-time computed data using simulation engine
   const simulatedData = useMemo(() => {
@@ -79,6 +80,51 @@ const Index = () => {
       blockedBreakdown
     };
   }, [simulatedData]);
+
+  // Phase 2 Planning Handlers
+  const handleTicketReorder = useCallback((ticketId: string, newRank: number) => {
+    console.log(`Reordering ticket ${ticketId} to rank ${newRank}`);
+    // In real implementation, this would update the backend
+    setLastRefresh(new Date()); // Trigger simulation refresh
+    toast({
+      title: "Ticket Reordered",
+      description: `${ticketId} moved to rank #${newRank}`,
+    });
+  }, [toast]);
+
+  const handleTicketReassign = useCallback((ticketId: string, newDeveloper: string) => {
+    console.log(`Reassigning ticket ${ticketId} to ${newDeveloper}`);
+    // In real implementation, this would update the backend
+    setLastRefresh(new Date()); // Trigger simulation refresh
+    toast({
+      title: "Ticket Reassigned",
+      description: `${ticketId} assigned to ${newDeveloper}`,
+    });
+  }, [toast]);
+
+  const handleEtaUpdate = useCallback((ticketId: string, newEta: string) => {
+    console.log(`Updating ETA for ticket ${ticketId} to ${newEta}`);
+    // In real implementation, this would update the backend
+    setLastRefresh(new Date()); // Trigger simulation refresh
+    toast({
+      title: "ETA Updated",
+      description: `${ticketId} ETA set to ${newEta}`,
+    });
+  }, [toast]);
+
+  const handleBlockerResolve = useCallback((ticketId: string) => {
+    console.log(`Resolving blocker for ticket ${ticketId}`);
+    // In real implementation, this would update the backend
+    setLastRefresh(new Date()); // Trigger simulation refresh
+    toast({
+      title: "Blocker Resolved",
+      description: `${ticketId} unblocked successfully`,
+    });
+  }, [toast]);
+
+  const handleSimulationUpdate = useCallback(() => {
+    setLastRefresh(new Date());
+  }, []);
 
   const handleRefresh = useCallback(() => {
     setLastRefresh(new Date());
@@ -162,13 +208,25 @@ const Index = () => {
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Team Pulse Dashboard 
-            <span className="text-lg font-normal text-green-600 ml-2">🔴 LIVE</span>
-          </h1>
-          <p className="text-gray-600">
-            Real-time Engineering Stand-up • Live Queue Simulation • Auto-updating Insights
-          </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                Team Pulse Dashboard 
+                <span className="text-lg font-normal text-green-600 ml-2">🔴 LIVE</span>
+              </h1>
+              <p className="text-gray-600">
+                Real-time Engineering Stand-up • Live Queue Simulation • Auto-updating Insights
+              </p>
+            </div>
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={() => setShowPhase2Panel(true)}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
+              >
+                <span>🚀 Phase 2 Planning</span>
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Enhanced Filter Toolbar */}
@@ -239,6 +297,18 @@ const Index = () => {
           onRemoveFromAgenda={handleToggleAgenda}
           onExportAgenda={handleExportAgenda}
         />
+
+        {/* Phase 2 Interactive Planning Panel */}
+        {showPhase2Panel && (
+          <Phase2PlanningPanel
+            developers={simulatedData.developers}
+            onTicketReorder={handleTicketReorder}
+            onTicketReassign={handleTicketReassign}
+            onEtaUpdate={handleEtaUpdate}
+            onBlockerResolve={handleBlockerResolve}
+            onSimulationUpdate={handleSimulationUpdate}
+          />
+        )}
       </div>
     </div>
   );
