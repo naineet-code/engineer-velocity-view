@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -7,33 +7,50 @@ import { ChartContainer, ChartConfig } from "@/components/ui/chart";
 import { PieChart, Pie, Cell, ResponsiveContainer, ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, BarChart, Bar } from "recharts";
 import { Download, TrendingUp, AlertTriangle, Clock, Target, Users, Calendar } from "lucide-react";
 import { AIRecommendationsPanel } from "@/components/dashboard/AIRecommendationsPanel";
+import { CSVUpload } from "@/components/shared/CSVUpload";
+import { useData } from "@/contexts/DataContext";
+import { KPICalculator } from "@/utils/kpiCalculations";
+import { useNavigate } from "react-router-dom";
 
 const SprintAnalysis = () => {
+  const { tickets } = useData();
+  const navigate = useNavigate();
   const [compareMode, setCompareMode] = useState(false);
+  
+  const calculator = useMemo(() => new KPICalculator(tickets), [tickets]);
 
-  // Mock data
-  const sprintData = {
-    kpis: {
-      completed: 12,
-      dropped: 3,
-      blocked: 2,
-      etaMissed: 4,
-      avgCycleTime: 5.2
-    },
-    etaAnalysis: {
-      missed: 4,
-      total: 15
-    },
-    blockedTimeAnalysis: {
-      totalBlockedDays: 12,
-      ticketsBlocked: 3
-    },
-    highEffortTickets: [
-      { id: "TICKET-123", effort: 8 },
-      { id: "TICKET-456", effort: 12 }
-    ]
-  };
+  // Sprint-specific calculations
+  const sprintData = useMemo(() => {
+    const timeDistribution = calculator.getTimeDistribution();
+    const riskTickets = calculator.getETARiskTickets();
+    const blockedTickets = tickets.filter(ticket => 
+      ['Clarification', 'Business QC', 'Release Plan'].includes(ticket.status)
+    );
+    const completedTickets = tickets.filter(ticket => ticket.status === 'Closed');
+    
+    return {
+      kpis: {
+        completed: completedTickets.length,
+        dropped: 0, // Would need sprint metadata to calculate properly
+        blocked: blockedTickets.length,
+        etaMissed: riskTickets.length,
+        avgCycleTime: calculator.getAverageDaysBlocked()
+      },
+      etaAnalysis: {
+        missed: riskTickets.length,
+        total: tickets.filter(t => t.status !== 'Closed').length
+      },
+      blockedTimeAnalysis: {
+        totalBlockedDays: Math.round(timeDistribution.Blocked),
+        ticketsBlocked: blockedTickets.length
+      },
+      highEffortTickets: tickets
+        .filter(t => t.effort_points >= 8)
+        .map(t => ({ id: t.ticket_id, effort: t.effort_points }))
+    };
+  }, [tickets, calculator]);
 
+  // Drop reasons (would need more data in CSV for accurate calculation)
   const dropReasons = [
     { name: "No AC", value: 40, color: "#ff6b6b" },
     { name: "Client Pullback", value: 30, color: "#4ecdc4" },
@@ -41,21 +58,30 @@ const SprintAnalysis = () => {
     { name: "Blocked Too Long", value: 10, color: "#96ceb4" }
   ];
 
-  const etaVsActual = [
-    { estimated: 3, actual: 4, name: "TICKET-001", status: "completed" },
-    { estimated: 5, actual: 8, name: "TICKET-002", status: "missed" },
-    { estimated: 2, actual: 2, name: "TICKET-003", status: "ontrack" },
-    { estimated: 4, actual: 3, name: "TICKET-004", status: "completed" },
-    { estimated: 6, actual: 10, name: "TICKET-005", status: "missed" }
-  ];
+  // ETA vs Actual scatter plot data
+  const etaVsActual = useMemo(() => {
+    const riskTickets = calculator.getETARiskTickets();
+    return tickets.slice(0, 10).map(ticket => {
+      const isRisk = riskTickets.some(rt => rt.ticket_id === ticket.ticket_id);
+      return {
+        estimated: ticket.effort_points,
+        actual: ticket.effort_points + (isRisk ? 2 : 0), // Mock actual vs estimated
+        name: ticket.ticket_id,
+        status: ticket.status === 'Closed' ? 'completed' : isRisk ? 'missed' : 'ontrack'
+      };
+    });
+  }, [tickets, calculator]);
 
-  const cycleTimeData = [
-    { stage: "Clarification", days: 1.5 },
-    { stage: "Dev", days: 3.2 },
-    { stage: "Tech QC", days: 0.8 },
-    { stage: "Business QC", days: 1.2 },
-    { stage: "Blocked", days: 0.5 }
-  ];
+  // Cycle time breakdown
+  const cycleTimeData = useMemo(() => {
+    const distribution = calculator.getTimeDistribution();
+    return [
+      { stage: "Development", days: Math.round(distribution.Development * 10) / 10 },
+      { stage: "Blocked", days: Math.round(distribution.Blocked * 10) / 10 },
+      { stage: "Review", days: Math.round(distribution.Review * 10) / 10 },
+      { stage: "Release", days: Math.round(distribution.Release * 10) / 10 }
+    ];
+  }, [calculator]);
 
   const chartConfig: ChartConfig = {
     clarification: { label: "Clarification", color: "#8884d8" },
@@ -92,6 +118,18 @@ Generated on: ${new Date().toLocaleDateString()}
     navigator.clipboard.writeText(report);
     alert("Retrospective report copied to clipboard!");
   };
+
+  if (tickets.length === 0) {
+    return (
+      <div className="container mx-auto p-6">
+        <div className="text-center">
+          <h1 className="text-3xl font-bold mb-6">Sprint Analysis</h1>
+          <CSVUpload />
+          <p className="text-gray-600 mt-4">Upload your CSV file to see sprint analysis.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto p-6 space-y-6">

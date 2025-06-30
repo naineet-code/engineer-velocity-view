@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,7 +21,9 @@ import { BacklogPool } from '@/components/sprint-planning/BacklogPool';
 import { DeveloperQueues } from '@/components/sprint-planning/DeveloperQueues';
 import { SprintSummary } from '@/components/sprint-planning/SprintSummary';
 import { BandwidthChart } from '@/components/sprint-planning/BandwidthChart';
-import { mockTickets, mockDevelopers } from '@/data/mockData';
+import { CSVUpload } from '@/components/shared/CSVUpload';
+import { useData } from '@/contexts/DataContext';
+import { KPICalculator } from '@/utils/kpiCalculations';
 
 export interface PlanningTicket {
   id: string;
@@ -46,6 +48,7 @@ export interface Developer {
 }
 
 const SprintCreation = () => {
+  const { tickets } = useData();
   const [sprintDuration, setSprintDuration] = useState(10);
   const [sprintMode, setSprintMode] = useState<'draft' | 'finalized'>('draft');
   const [backlogTickets, setBacklogTickets] = useState<PlanningTicket[]>([]);
@@ -54,29 +57,37 @@ const SprintCreation = () => {
   const [filterType, setFilterType] = useState<'all' | 'bug' | 'story' | 'task'>('all');
   const [showEtaReady, setShowEtaReady] = useState(false);
 
-  // Initialize data
-  useEffect(() => {
-    // Convert mock data to planning format
-    const planningTickets: PlanningTicket[] = mockTickets.map(ticket => ({
-      id: ticket.id,
-      title: ticket.title,
-      priority: ticket.priority as 'low' | 'medium' | 'high' | 'critical',
-      effort: ticket.effortDays || 1,
-      eta: ticket.eta,
-      tags: ticket.tags || [],
-      type: ticket.type as 'bug' | 'story' | 'task',
-    }));
+  const calculator = useMemo(() => new KPICalculator(tickets), [tickets]);
 
-    const planningDevelopers: Developer[] = mockDevelopers.map(dev => ({
-      id: dev.id,
-      name: dev.name,
+  // Initialize data from CSV
+  useEffect(() => {
+    if (tickets.length === 0) return;
+
+    // Convert CSV tickets to planning format
+    const planningTickets: PlanningTicket[] = tickets
+      .filter(ticket => ticket.status !== 'Closed')
+      .map(ticket => ({
+        id: ticket.ticket_id,
+        title: ticket.title,
+        priority: (ticket.priority as 'low' | 'medium' | 'high' | 'critical') || 'medium',
+        effort: ticket.effort_points || 1,
+        eta: ticket.ETA,
+        tags: [],
+        type: 'story' as const, // Default to story since CSV doesn't have type
+      }));
+
+    // Get unique developers from tickets
+    const uniqueDevs = [...new Set(tickets.map(t => t.developer))];
+    const planningDevelopers: Developer[] = uniqueDevs.map(devName => ({
+      id: devName.toLowerCase().replace(/\s+/g, '-'),
+      name: devName,
       availableEffort: 8, // 8 days per sprint
       assignedTickets: []
     }));
 
     setBacklogTickets(planningTickets);
     setDevelopers(planningDevelopers);
-  }, []);
+  }, [tickets]);
 
   const handleTicketAssign = (ticketId: string, developerId: string) => {
     setBacklogTickets(prev => prev.filter(t => t.id !== ticketId));
@@ -138,6 +149,8 @@ const SprintCreation = () => {
   };
 
   const recalculateProjections = () => {
+    const riskTickets = calculator.getETARiskTickets();
+    
     setDevelopers(prev => prev.map(dev => {
       let currentDate = new Date();
       const updatedTickets = dev.assignedTickets.map(ticket => {
@@ -146,7 +159,8 @@ const SprintCreation = () => {
         currentDate = addWorkingDays(currentDate, ticket.effort);
         
         const etaDate = ticket.eta ? new Date(ticket.eta) : null;
-        const isRisk = etaDate ? projectedEnd > etaDate : false;
+        const isRisk = etaDate ? projectedEnd > etaDate : 
+          riskTickets.some(rt => rt.ticket_id === ticket.id);
 
         return {
           ...ticket,
@@ -210,6 +224,18 @@ const SprintCreation = () => {
     console.log('Exporting sprint summary...');
     // Implementation for exporting summary
   };
+
+  if (tickets.length === 0) {
+    return (
+      <div className="container mx-auto p-6">
+        <div className="text-center">
+          <h1 className="text-3xl font-bold mb-6">Sprint Planning</h1>
+          <CSVUpload />
+          <p className="text-gray-600 mt-4">Upload your CSV file to start sprint planning.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">

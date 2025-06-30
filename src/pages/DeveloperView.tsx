@@ -1,4 +1,6 @@
+
 import React, { useState, useMemo } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -23,6 +25,9 @@ import {
   Settings
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, PieChart, Pie, Cell, LineChart, Line } from "recharts";
+import { CSVUpload } from "@/components/shared/CSVUpload";
+import { useData } from "@/contexts/DataContext";
+import { KPICalculator } from "@/utils/kpiCalculations";
 
 // Import new components
 import { SmartNudgesPanel } from "@/components/dashboard/SmartNudgesPanel";
@@ -30,98 +35,87 @@ import { TodaysPlanPanel } from "@/components/dashboard/TodaysPlanPanel";
 import { ClarificationLoopMap } from "@/components/dashboard/ClarificationLoopMap";
 import { PersonalGoalTracker } from "@/components/dashboard/PersonalGoalTracker";
 
-// Mock data
-const developers = [
-  { id: "sarah", name: "Sarah Chen", avatar: "SC" },
-  { id: "mike", name: "Mike Rodriguez", avatar: "MR" },
-  { id: "nidhi", name: "Nidhi Patel", avatar: "NP" },
-  { id: "alex", name: "Alex Kim", avatar: "AK" }
-];
-
-const mockTickets = [
-  {
-    id: "ENG-1234",
-    title: "User Authentication System",
-    status: "In Dev",
-    eta: 5,
-    effortRemaining: 3,
-    projectedEnd: "2024-01-15",
-    daysBlocked: 0,
-    isRisk: false,
-    rank: 1,
-    blockerHistory: [],
-    addedToOneOnOne: false
-  },
-  {
-    id: "ENG-1235", 
-    title: "Dashboard Performance Optimization",
-    status: "Blocked",
-    eta: 3,
-    effortRemaining: 2,
-    projectedEnd: "2024-01-18",
-    daysBlocked: 4,
-    isRisk: true,
-    rank: 2,
-    blockerHistory: ["Success team review pending"],
-    addedToOneOnOne: true
-  },
-  {
-    id: "ENG-1236",
-    title: "Email Notification Service",
-    status: "Not Started",
-    eta: 2,
-    effortRemaining: 2,
-    projectedEnd: "2024-01-20", 
-    daysBlocked: 0,
-    isRisk: false,
-    rank: 3,
-    blockerHistory: [],
-    addedToOneOnOne: false
-  }
-];
-
-const timeAllocationData = [
-  { name: "Development", value: 65, color: "#22c55e" },
-  { name: "Blocked", value: 20, color: "#ef4444" },
-  { name: "Clarification", value: 15, color: "#f59e0b" }
-];
-
-const velocityData = [
-  { week: "W1", effortClosed: 8, avgAge: 3.2 },
-  { week: "W2", effortClosed: 12, avgAge: 2.8 },
-  { week: "W3", effortClosed: 6, avgAge: 4.1 },
-  { week: "W4", effortClosed: 10, avgAge: 3.5 }
-];
-
-const blockerPatternData = [
-  { source: "Success", days: 5, tickets: ["ENG-1235"] },
-  { source: "Client", days: 3, tickets: ["ENG-1230"] },
-  { source: "Infrastructure", days: 2, tickets: ["ENG-1228"] }
-];
-
-const recentActivity = [
-  { date: "2024-01-10", event: "Started", ticket: "ENG-1234", type: "start" },
-  { date: "2024-01-09", event: "Blocked", ticket: "ENG-1235", type: "blocked" },
-  { date: "2024-01-08", event: "Completed", ticket: "ENG-1233", type: "completed" },
-  { date: "2024-01-07", event: "Clarification", ticket: "ENG-1235", type: "clarification" }
-];
-
 const DeveloperView = () => {
-  const [selectedDeveloper, setSelectedDeveloper] = useState("sarah");
-  const [tickets, setTickets] = useState(mockTickets);
+  const { developerName } = useParams();
+  const { tickets } = useData();
+  const navigate = useNavigate();
+  const [selectedDeveloper, setSelectedDeveloper] = useState(developerName || "");
   const [managerNotes, setManagerNotes] = useState("");
   const [showGoalTracker, setShowGoalTracker] = useState(false);
   const [calendarView, setCalendarView] = useState(false);
 
-  const selectedDevInfo = developers.find(dev => dev.id === selectedDeveloper);
+  const calculator = useMemo(() => new KPICalculator(tickets), [tickets]);
+
+  // Get unique developers
+  const developers = useMemo(() => {
+    const uniqueDevs = [...new Set(tickets.map(t => t.developer))];
+    return uniqueDevs.map(name => ({
+      id: name.toLowerCase().replace(/\s+/g, '-'),
+      name,
+      avatar: name.split(' ').map(n => n[0]).join('').toUpperCase()
+    }));
+  }, [tickets]);
+
+  // Get current developer's tickets
+  const developerTickets = useMemo(() => {
+    if (!selectedDeveloper) return [];
+    return tickets.filter(ticket => ticket.developer === selectedDeveloper);
+  }, [tickets, selectedDeveloper]);
+
+  // Set selected developer if coming from URL
+  React.useEffect(() => {
+    if (developerName && developers.length > 0) {
+      const dev = developers.find(d => d.name === developerName || d.id === developerName);
+      if (dev) {
+        setSelectedDeveloper(dev.name);
+      }
+    } else if (!selectedDeveloper && developers.length > 0) {
+      setSelectedDeveloper(developers[0].name);
+    }
+  }, [developerName, developers, selectedDeveloper]);
+
+  const selectedDevInfo = developers.find(dev => dev.name === selectedDeveloper);
+
+  // Developer-specific metrics
+  const devMetrics = useMemo(() => {
+    if (!selectedDeveloper) return null;
+    return calculator.getDeveloperMetrics(selectedDeveloper);
+  }, [calculator, selectedDeveloper]);
+
+  // Transform tickets for display
+  const displayTickets = useMemo(() => {
+    const riskTickets = calculator.getETARiskTickets();
+    
+    return developerTickets.map(ticket => ({
+      id: ticket.ticket_id,
+      title: ticket.title,
+      status: ticket.status,
+      eta: ticket.effort_points,
+      effortRemaining: ticket.effort_points,
+      projectedEnd: ticket.ETA,
+      daysBlocked: ['Clarification', 'Business QC', 'Release Plan'].includes(ticket.status) ? 
+        calculator.getAverageDaysBlocked() : 0,
+      isRisk: riskTickets.some(rt => rt.ticket_id === ticket.ticket_id),
+      rank: ticket.rank,
+      blockerHistory: ticket.blocked_by ? [ticket.blocked_by] : [],
+      addedToOneOnOne: false
+    }));
+  }, [developerTickets, calculator]);
+
+  const [ticketStates, setTicketStates] = useState(displayTickets);
+
+  // Update ticket states when displayTickets changes
+  React.useEffect(() => {
+    setTicketStates(displayTickets);
+  }, [displayTickets]);
 
   // Calculate KPIs
   const kpis = useMemo(() => {
-    const activeTickets = tickets.filter(t => t.status !== "Completed");
+    const activeTickets = ticketStates.filter(t => t.status !== "Closed");
     const totalEffortRemaining = activeTickets.reduce((sum, t) => sum + t.effortRemaining, 0);
     const riskTickets = activeTickets.filter(t => t.isRisk).length;
     const totalBlocked = activeTickets.reduce((sum, t) => sum + t.daysBlocked, 0);
-    const completedLast7Days = 2; // Mock value
+    const completedLast7Days = calculator.getTicketsClosedLast7Days();
 
     return [
       { 
@@ -140,7 +134,7 @@ const DeveloperView = () => {
         title: "ETA Risk Tickets", 
         value: riskTickets, 
         icon: AlertTriangle,
-        tooltip: tickets.filter(t => t.isRisk).map(t => t.title).join(", ")
+        tooltip: ticketStates.filter(t => t.isRisk).map(t => t.title).join(", ")
       },
       { 
         title: "Days Blocked", 
@@ -155,54 +149,89 @@ const DeveloperView = () => {
         tooltip: "Tickets completed in the last 7 days"
       }
     ];
-  }, [tickets]);
+  }, [ticketStates, calculator]);
+
+  // Time allocation and velocity data
+  const timeAllocationData = useMemo(() => {
+    if (!devMetrics) return [];
+    
+    const distribution = calculator.getTimeDistribution();
+    return [
+      { name: "Development", value: Math.round(distribution.Development), color: "#22c55e" },
+      { name: "Blocked", value: Math.round(distribution.Blocked), color: "#ef4444" },
+      { name: "Review", value: Math.round(distribution.Review), color: "#f59e0b" }
+    ];
+  }, [devMetrics, calculator]);
+
+  const velocityData = [
+    { week: "W1", effortClosed: 8, avgAge: 3.2 },
+    { week: "W2", effortClosed: 12, avgAge: 2.8 },
+    { week: "W3", effortClosed: 6, avgAge: 4.1 },
+    { week: "W4", effortClosed: 10, avgAge: 3.5 }
+  ];
+
+  const recentActivity = useMemo(() => {
+    return developerTickets.slice(0, 4).map(ticket => ({
+      date: ticket.last_updated,
+      event: ticket.status,
+      ticket: ticket.ticket_id,
+      type: ticket.status === 'Closed' ? 'completed' : 
+            ['Clarification', 'Business QC', 'Release Plan'].includes(ticket.status) ? 'blocked' : 'start'
+    }));
+  }, [developerTickets]);
 
   const handleETAUpdate = (ticketId: string, newETA: number) => {
-    setTickets(prev => prev.map(ticket => 
+    setTicketStates(prev => prev.map(ticket => 
       ticket.id === ticketId ? { ...ticket, eta: newETA } : ticket
     ));
   };
 
   const handleReassign = (ticketId: string, newDeveloper: string) => {
-    // In a real app, this would update the ticket assignment
     console.log(`Reassigning ${ticketId} to ${newDeveloper}`);
   };
 
   const toggleOneOnOne = (ticketId: string) => {
-    setTickets(prev => prev.map(ticket => 
+    setTicketStates(prev => prev.map(ticket => 
       ticket.id === ticketId 
         ? { ...ticket, addedToOneOnOne: !ticket.addedToOneOnOne }
         : ticket
     ));
   };
 
-  const oneOnOneTickets = tickets.filter(t => t.addedToOneOnOne);
+  const oneOnOneTickets = ticketStates.filter(t => t.addedToOneOnOne);
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "In Dev": return "default";
-      case "Blocked": return "destructive";
-      case "Not Started": return "secondary";
-      default: return "outline";
+      case "In Development": return "default";
+      case "Clarification":
+      case "Business QC": 
+      case "Release Plan": return "destructive";
+      case "Closed": return "default";
+      default: return "secondary";
     }
   };
 
-  const aiInsights = [
-    "Average ETA overrun: +2.5 days on 4/6 tickets",
-    "Majority of blocks came from Success team — consider async templates",
-    "Started 2 tickets out of rank order — delayed others by 3 days"
-  ];
-
   const handleTicketStart = (ticketId: string) => {
-    setTickets(prev => prev.map(ticket => 
-      ticket.id === ticketId ? { ...ticket, status: "In Dev" } : ticket
+    setTicketStates(prev => prev.map(ticket => 
+      ticket.id === ticketId ? { ...ticket, status: "In Development" } : ticket
     ));
-    console.log(`Started ticket ${ticketId}`);
   };
 
   const handleTicketDefer = (ticketId: string, comment: string) => {
     console.log(`Deferred ticket ${ticketId}: ${comment}`);
   };
+
+  if (tickets.length === 0) {
+    return (
+      <div className="container mx-auto p-6">
+        <div className="text-center">
+          <h1 className="text-3xl font-bold mb-6">Developer Dashboard</h1>
+          <CSVUpload />
+          <p className="text-gray-600 mt-4">Upload your CSV file to see developer metrics.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <TooltipProvider>
@@ -225,7 +254,7 @@ const DeveloperView = () => {
               </SelectTrigger>
               <SelectContent>
                 {developers.map(dev => (
-                  <SelectItem key={dev.id} value={dev.id}>
+                  <SelectItem key={dev.id} value={dev.name}>
                     <div className="flex items-center space-x-2">
                       <div className="w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center text-xs">
                         {dev.avatar}
@@ -238,7 +267,7 @@ const DeveloperView = () => {
             </Select>
             <SmartNudgesPanel 
               developerName={selectedDevInfo?.name || ""} 
-              tickets={tickets}
+              tickets={ticketStates}
             />
           </div>
         </div>
@@ -267,7 +296,7 @@ const DeveloperView = () => {
 
         {/* Today's Plan */}
         <TodaysPlanPanel 
-          tickets={tickets}
+          tickets={ticketStates}
           onTicketStart={handleTicketStart}
           onTicketDefer={handleTicketDefer}
         />
@@ -306,10 +335,14 @@ const DeveloperView = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {tickets
+                {ticketStates
                   .sort((a, b) => a.rank - b.rank)
                   .map((ticket) => (
-                  <TableRow key={ticket.id} className={ticket.isRisk ? "bg-red-50" : ""}>
+                  <TableRow 
+                    key={ticket.id} 
+                    className={ticket.isRisk ? "bg-red-50" : ""}
+                    onClick={() => navigate(`/ticket-view/${ticket.id}`)}
+                  >
                     <TableCell>{ticket.rank}</TableCell>
                     <TableCell>
                       <div>
@@ -326,7 +359,8 @@ const DeveloperView = () => {
                       <Button 
                         variant="ghost" 
                         size="sm"
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation();
                           const newETA = prompt("Enter new ETA (days):", ticket.eta.toString());
                           if (newETA && !isNaN(Number(newETA))) {
                             handleETAUpdate(ticket.id, Number(newETA));
@@ -346,7 +380,10 @@ const DeveloperView = () => {
                         <Button 
                           variant="ghost" 
                           size="sm"
-                          onClick={() => toggleOneOnOne(ticket.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleOneOnOne(ticket.id);
+                          }}
                           className={ticket.addedToOneOnOne ? "text-blue-600" : ""}
                         >
                           <Pin className="h-4 w-4" />
@@ -356,8 +393,8 @@ const DeveloperView = () => {
                             <SelectValue placeholder="→" />
                           </SelectTrigger>
                           <SelectContent>
-                            {developers.filter(d => d.id !== selectedDeveloper).map(dev => (
-                              <SelectItem key={dev.id} value={dev.id}>{dev.avatar}</SelectItem>
+                            {developers.filter(d => d.name !== selectedDeveloper).map(dev => (
+                              <SelectItem key={dev.id} value={dev.name}>{dev.avatar}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
@@ -374,7 +411,7 @@ const DeveloperView = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left Column */}
           <div className="space-y-6">
-            <ClarificationLoopMap tickets={tickets} />
+            <ClarificationLoopMap tickets={ticketStates} />
             <PersonalGoalTracker isVisible={showGoalTracker} />
           </div>
 
@@ -390,7 +427,7 @@ const DeveloperView = () => {
                 <ChartContainer config={{
                   development: { label: "Development", color: "#22c55e" },
                   blocked: { label: "Blocked", color: "#ef4444" },
-                  clarification: { label: "Clarification", color: "#f59e0b" }
+                  review: { label: "Review", color: "#f59e0b" }
                 }}>
                   <PieChart>
                     <Pie
@@ -540,25 +577,6 @@ const DeveloperView = () => {
             </Card>
           </div>
         </div>
-
-        {/* AI Coaching Insights */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <MessageSquare className="h-5 w-5 text-blue-600" />
-              <span>AI Coaching Insights</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {aiInsights.map((insight, index) => (
-                <div key={index} className="p-3 bg-blue-50 rounded-lg">
-                  <p className="text-sm">{insight}</p>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
       </div>
     </TooltipProvider>
   );
