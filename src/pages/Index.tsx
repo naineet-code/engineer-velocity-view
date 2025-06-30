@@ -51,7 +51,7 @@ const Index = () => {
       })),
       riskTrend: riskTickets.slice(0, 10).map((ticket, index) => ({
         name: ticket.ticket_id,
-        risk: ticket.risk_score || Math.random() * 100,
+        risk: 50 + Math.random() * 50, // Generate risk score between 50-100
         effort: ticket.effort_points
       }))
     };

@@ -1,5 +1,6 @@
 
 import React, { createContext, useContext, useState, ReactNode } from 'react';
+import { dummyTicketsData } from '@/data/dummyTickets';
 
 export interface TicketData {
   ticket_id: string;
@@ -22,6 +23,8 @@ interface DataContextType {
   uploadCSV: (file: File) => Promise<void>;
   isLoading: boolean;
   error: string | null;
+  isUsingDummyData: boolean;
+  downloadSampleCSV: () => void;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -38,6 +41,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [tickets, setTickets] = useState<TicketData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isUsingDummyData, setIsUsingDummyData] = useState(true);
 
   const parseCSV = (csvText: string): TicketData[] => {
     const lines = csvText.split('\n').filter(line => line.trim());
@@ -87,9 +91,11 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       const text = await file.text();
       const parsedData = parseCSV(text);
       setTickets(parsedData);
+      setIsUsingDummyData(false);
       
       // Store in localStorage
       localStorage.setItem('aura-tickets', JSON.stringify(parsedData));
+      localStorage.setItem('aura-using-dummy-data', 'false');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to parse CSV');
     } finally {
@@ -97,20 +103,70 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // Load from localStorage on mount
+  const downloadSampleCSV = () => {
+    const headers = [
+      'ticket_id', 'title', 'developer', 'created_at', 'last_updated', 
+      'status', 'effort_points', 'ETA', 'priority', 'rank', 'blocked_by', 
+      'resumed_at', 'event_log'
+    ];
+    
+    const csvContent = [
+      headers.join(','),
+      ...dummyTicketsData.map(ticket => [
+        ticket.ticket_id,
+        `"${ticket.title}"`,
+        ticket.developer,
+        ticket.created_at,
+        ticket.last_updated,
+        ticket.status,
+        ticket.effort_points,
+        ticket.ETA,
+        ticket.priority,
+        ticket.rank,
+        ticket.blocked_by || '',
+        ticket.resumed_at || '',
+        `"${JSON.stringify(ticket.event_log).replace(/"/g, '""')}"`
+      ].join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'sample_tickets.csv';
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
+
+  // Load from localStorage on mount, or use dummy data
   React.useEffect(() => {
     const stored = localStorage.getItem('aura-tickets');
-    if (stored) {
+    const usingDummy = localStorage.getItem('aura-using-dummy-data');
+    
+    if (stored && usingDummy === 'false') {
       try {
         setTickets(JSON.parse(stored));
+        setIsUsingDummyData(false);
       } catch (err) {
         console.error('Failed to load stored data:', err);
+        setTickets(dummyTicketsData);
+        setIsUsingDummyData(true);
       }
+    } else {
+      setTickets(dummyTicketsData);
+      setIsUsingDummyData(true);
     }
   }, []);
 
   return (
-    <DataContext.Provider value={{ tickets, uploadCSV, isLoading, error }}>
+    <DataContext.Provider value={{ 
+      tickets, 
+      uploadCSV, 
+      isLoading, 
+      error, 
+      isUsingDummyData, 
+      downloadSampleCSV 
+    }}>
       {children}
     </DataContext.Provider>
   );

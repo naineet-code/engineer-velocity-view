@@ -83,7 +83,7 @@ export class KPICalculator {
     ).length;
   }
 
-  // 6. Tickets Closed Last 7 Days
+  // 6. Tickets Closed Last 7 Days (fixed method name)
   getTicketsClosedLast7Days(): number {
     const sevenDaysAgo = new Date(this.today);
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
@@ -95,7 +95,23 @@ export class KPICalculator {
     }).length;
   }
 
-  // 7. Time Distribution by Status
+  // Added alias for backward compatibility
+  getTicketsClosed7Days(): number {
+    return this.getTicketsClosedLast7Days();
+  }
+
+  // 7. Status Distribution
+  getStatusDistribution(): { [status: string]: number } {
+    const distribution: { [status: string]: number } = {};
+    
+    this.tickets.forEach(ticket => {
+      distribution[ticket.status] = (distribution[ticket.status] || 0) + 1;
+    });
+
+    return distribution;
+  }
+
+  // 8. Time Distribution by Status
   getTimeDistribution(): { [status: string]: number } {
     const distribution: { [status: string]: number } = {
       Development: 0,
@@ -130,7 +146,7 @@ export class KPICalculator {
     return distribution;
   }
 
-  // 8. Blockers by Source
+  // 9. Blockers by Source
   getBlockersBySource(): { [source: string]: number } {
     const blockers: { [source: string]: number } = {};
     
