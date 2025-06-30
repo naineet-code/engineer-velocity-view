@@ -15,11 +15,24 @@ const Index = () => {
   const { tickets } = useData();
   const navigate = useNavigate();
   
-  const calculator = useMemo(() => new KPICalculator(tickets), [tickets]);
+  // Initialize calculator first, with safety check
+  const calculator = useMemo(() => {
+    if (!tickets || tickets.length === 0) return null;
+    return new KPICalculator(tickets);
+  }, [tickets]);
 
-  // KPI Calculations
+  // KPI Calculations with safety checks
   const kpis = useMemo(() => {
-    if (tickets.length === 0) return null;
+    if (!calculator || !tickets || tickets.length === 0) {
+      return {
+        blockedTickets: 0,
+        avgDaysBlocked: 0,
+        etaRiskTickets: 0,
+        devsWithRisk: 0,
+        ticketsClosedYesterday: 0,
+        ticketsClosed7d: 0
+      };
+    }
     
     return {
       blockedTickets: calculator.getTotalBlockedTickets(),
@@ -31,13 +44,32 @@ const Index = () => {
     };
   }, [calculator, tickets]);
 
-  // Chart data
+  // Chart data with proper initialization order
   const chartData = useMemo(() => {
-    if (tickets.length === 0) return null;
+    if (!calculator || !tickets || tickets.length === 0) {
+      return {
+        statusPie: [],
+        timeBar: [],
+        riskTrend: []
+      };
+    }
     
     const statusDistribution = calculator.getStatusDistribution();
     const timeDistribution = calculator.getTimeDistribution();
     const riskTickets = calculator.getETARiskTickets();
+    
+    const getStatusColor = (status: string) => {
+      const colors: Record<string, string> = {
+        'Blocked': '#EF4444',
+        'In Development': '#3B82F6', 
+        'Review': '#FACC15',
+        'Closed': '#10B981',
+        'Clarification': '#EF4444',
+        'Business QC': '#F59E0B',
+        'Release Plan': '#8B5CF6'
+      };
+      return colors[status] || '#6B7280';
+    };
     
     return {
       statusPie: Object.entries(statusDistribution).map(([status, count]) => ({
@@ -51,26 +83,20 @@ const Index = () => {
       })),
       riskTrend: riskTickets.slice(0, 10).map((ticket, index) => ({
         name: ticket.ticket_id,
-        risk: 50 + Math.random() * 50, // Generate risk score between 50-100
+        risk: 50 + Math.random() * 50,
         effort: ticket.effort_points
       }))
     };
   }, [calculator, tickets]);
 
-  const getStatusColor = (status: string) => {
-    const colors = {
-      'Blocked': '#EF4444',
-      'In Development': '#3B82F6', 
-      'Review': '#FACC15',
-      'Closed': '#10B981',
-      'Clarification': '#EF4444',
-      'Business QC': '#F59E0B',
-      'Release Plan': '#8B5CF6'
-    };
-    return colors[status as keyof typeof colors] || '#6B7280';
+  const chartConfig: ChartConfig = {
+    blocked: { label: "Blocked", color: "#EF4444" },
+    development: { label: "Development", color: "#3B82F6" },
+    review: { label: "Review", color: "#FACC15" },
+    closed: { label: "Closed", color: "#10B981" }
   };
 
-  if (tickets.length === 0) {
+  if (!tickets || tickets.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh]">
         <div className="text-center max-w-md">
@@ -84,13 +110,6 @@ const Index = () => {
       </div>
     );
   }
-
-  const chartConfig: ChartConfig = {
-    blocked: { label: "Blocked", color: "#EF4444" },
-    development: { label: "Development", color: "#3B82F6" },
-    review: { label: "Review", color: "#FACC15" },
-    closed: { label: "Closed", color: "#10B981" }
-  };
 
   return (
     <div className="space-y-8">
@@ -109,7 +128,7 @@ const Index = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500 mb-1">Blocked Tickets</p>
-                <p className="text-3xl font-bold text-red-600">{kpis?.blockedTickets}</p>
+                <p className="text-3xl font-bold text-red-600">{kpis.blockedTickets}</p>
               </div>
               <div className="p-3 rounded-lg bg-red-100">
                 <AlertCircle className="h-6 w-6 text-red-600" />
@@ -123,7 +142,7 @@ const Index = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500 mb-1">Avg Days Blocked</p>
-                <p className="text-3xl font-bold text-yellow-600">{kpis?.avgDaysBlocked}d</p>
+                <p className="text-3xl font-bold text-yellow-600">{kpis.avgDaysBlocked}d</p>
               </div>
               <div className="p-3 rounded-lg bg-yellow-100">
                 <Clock className="h-6 w-6 text-yellow-600" />
@@ -137,7 +156,7 @@ const Index = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500 mb-1">ETA Risk Tickets</p>
-                <p className="text-3xl font-bold text-red-600">{kpis?.etaRiskTickets}</p>
+                <p className="text-3xl font-bold text-red-600">{kpis.etaRiskTickets}</p>
               </div>
               <div className="p-3 rounded-lg bg-red-100">
                 <AlertTriangle className="h-6 w-6 text-red-600" />
@@ -151,7 +170,7 @@ const Index = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500 mb-1">Devs with Risk</p>
-                <p className="text-3xl font-bold text-orange-600">{kpis?.devsWithRisk}</p>
+                <p className="text-3xl font-bold text-orange-600">{kpis.devsWithRisk}</p>
               </div>
               <div className="p-3 rounded-lg bg-orange-100">
                 <User className="h-6 w-6 text-orange-600" />
@@ -165,7 +184,7 @@ const Index = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500 mb-1">Closed Yesterday</p>
-                <p className="text-3xl font-bold text-green-600">{kpis?.ticketsClosedYesterday}</p>
+                <p className="text-3xl font-bold text-green-600">{kpis.ticketsClosedYesterday}</p>
               </div>
               <div className="p-3 rounded-lg bg-green-100">
                 <CheckCircle className="h-6 w-6 text-green-600" />
@@ -179,7 +198,7 @@ const Index = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500 mb-1">Closed (7d)</p>
-                <p className="text-3xl font-bold text-green-600">{kpis?.ticketsClosed7d}</p>
+                <p className="text-3xl font-bold text-green-600">{kpis.ticketsClosed7d}</p>
               </div>
               <div className="p-3 rounded-lg bg-green-100">
                 <Calendar className="h-6 w-6 text-green-600" />
@@ -200,14 +219,14 @@ const Index = () => {
             <ChartContainer config={chartConfig}>
               <PieChart>
                 <Pie
-                  data={chartData?.statusPie}
+                  data={chartData.statusPie}
                   cx="50%"
                   cy="50%"
                   outerRadius={80}
                   dataKey="value"
                   nameKey="name"
                 >
-                  {chartData?.statusPie.map((entry, index) => (
+                  {chartData.statusPie.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
@@ -224,7 +243,7 @@ const Index = () => {
           </CardHeader>
           <CardContent className="p-6 pt-2">
             <ChartContainer config={chartConfig}>
-              <BarChart data={chartData?.timeBar}>
+              <BarChart data={chartData.timeBar}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" />
                 <XAxis dataKey="status" />
                 <YAxis />
@@ -246,7 +265,7 @@ const Index = () => {
         </CardHeader>
         <CardContent className="p-6 pt-2">
           <ChartContainer config={chartConfig}>
-            <LineChart data={chartData?.riskTrend}>
+            <LineChart data={chartData.riskTrend}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" />
               <XAxis dataKey="name" />
               <YAxis />
