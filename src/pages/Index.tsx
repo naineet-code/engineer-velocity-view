@@ -135,14 +135,9 @@ const Index = () => {
   }, [toast]);
 
   const handleTicketClick = useCallback((ticketId: string) => {
-    const ticket = simulatedData.tickets.find(t => t.id === ticketId);
-    toast({
-      title: "Ticket Details",
-      description: ticket ? 
-        `${ticket.title} - ETA: ${ticket.etaDate.toLocaleDateString()} | Projected: ${ticket.projectedEndDate.toLocaleDateString()}` :
-        `Opening details for ${ticketId}`,
-    });
-  }, [simulatedData.tickets, toast]);
+    // Navigate to ticket detail view
+    window.location.href = `/ticket-view/${ticketId}`;
+  }, []);
 
   const handleToggleAgenda = useCallback((ticketId: string) => {
     setAgendaTickets(prev => 
@@ -153,12 +148,9 @@ const Index = () => {
   }, []);
 
   const handleDeveloperClick = useCallback((developer: string) => {
-    setSelectedDeveloper(developer);
-    toast({
-      title: "Live Filter Applied",
-      description: `Showing simulated queue for ${developer}`,
-    });
-  }, [toast]);
+    // Navigate to developer view with pre-selected developer
+    window.location.href = `/developer-view?dev=${encodeURIComponent(developer)}`;
+  }, []);
 
   const handleBlockerSourceClick = useCallback((source: string) => {
     setSelectedBlockerSource(source);
@@ -220,10 +212,16 @@ const Index = () => {
             </div>
             <div className="flex items-center space-x-4">
               <button
-                onClick={() => setShowPhase2Panel(true)}
+                onClick={() => window.location.href = '/sprint-planning'}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
               >
-                <span>🚀 Phase 2 Planning</span>
+                <span>🚀 Sprint Planning</span>
+              </button>
+              <button
+                onClick={() => window.location.href = '/sprint-analysis'}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2"
+              >
+                <span>📊 Sprint Analysis</span>
               </button>
             </div>
           </div>

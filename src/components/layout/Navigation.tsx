@@ -45,7 +45,7 @@ const navigationItems = [
     href: "/sprint-planning",
     icon: Plus,
     description: "Create and plan new sprints",
-    disabled: false
+    disabled: false  // Now fully functional
   }
 ];
 

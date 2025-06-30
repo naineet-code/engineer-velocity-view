@@ -1,10 +1,17 @@
 
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { AlertTriangle, GripVertical, X } from 'lucide-react';
-import { Developer, PlanningTicket } from '@/pages/SprintCreation';
+import { Badge } from '@/components/ui/badge';
+import { 
+  User, 
+  Clock, 
+  Calendar,
+  AlertTriangle,
+  X,
+  GripVertical
+} from 'lucide-react';
+import { Developer } from '@/pages/SprintCreation';
 
 interface DeveloperQueuesProps {
   developers: Developer[];
@@ -22,131 +29,151 @@ export const DeveloperQueues: React.FC<DeveloperQueuesProps> = ({
   const handleDrop = (e: React.DragEvent, developerId: string) => {
     e.preventDefault();
     const ticketId = e.dataTransfer.getData('text/plain');
-    // This would need to be handled by parent component
-    console.log(`Dropping ticket ${ticketId} to developer ${developerId}`);
+    // This would be handled by the parent component's onTicketAssign
+    console.log(`Assigning ticket ${ticketId} to ${developerId}`);
   };
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
   };
 
-  const getStatusColor = (ticket: PlanningTicket) => {
-    if (ticket.isRisk) return 'text-red-600 bg-red-100';
-    return 'text-green-600 bg-green-100';
-  };
-
-  const formatDate = (date: Date | undefined) => {
-    if (!date) return '';
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'critical': return 'bg-red-600 text-white';
+      case 'high': return 'bg-orange-500 text-white';
+      case 'medium': return 'bg-yellow-500 text-white';
+      case 'low': return 'bg-gray-400 text-white';
+      default: return 'bg-gray-400 text-white';
+    }
   };
 
   return (
-    <Card className="h-full">
-      <CardHeader>
-        <CardTitle>Developer Queues</CardTitle>
-      </CardHeader>
+    <div className="space-y-4">
+      <h2 className="text-xl font-semibold">Developer Queues</h2>
       
-      <CardContent className="p-0">
-        <div className="max-h-96 overflow-y-auto">
-          <div className="grid grid-cols-2 gap-4 p-4">
-            {developers.map((developer) => {
-              const totalEffort = developer.assignedTickets.reduce((sum, ticket) => sum + ticket.effort, 0);
-              const isOverloaded = totalEffort > developer.availableEffort;
-              const utilization = Math.round((totalEffort / developer.availableEffort) * 100);
-              
-              return (
-                <div key={developer.id} className="space-y-3">
-                  {/* Developer Header */}
-                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div>
-                      <h3 className="font-medium">{developer.name}</h3>
-                      <p className="text-sm text-gray-600">
-                        {totalEffort}d / {developer.availableEffort}d
-                        <span className={`ml-2 ${isOverloaded ? 'text-red-600' : 'text-green-600'}`}>
-                          ({utilization}%)
-                        </span>
-                      </p>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {developers.map((developer) => {
+          const totalEffort = developer.assignedTickets.reduce((sum, ticket) => sum + ticket.effort, 0);
+          const isOverloaded = totalEffort > developer.availableEffort;
+          const utilization = (totalEffort / developer.availableEffort) * 100;
+
+          return (
+            <Card key={developer.id} className="h-fit">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <User className="h-5 w-5" />
+                    {developer.name}
+                  </CardTitle>
+                  <div className="text-right">
+                    <div className="text-sm text-gray-600">
+                      {totalEffort}d / {developer.availableEffort}d
                     </div>
-                    {isOverloaded && (
-                      <AlertTriangle className="h-5 w-5 text-red-500" />
-                    )}
-                  </div>
-                  
-                  {/* Drop Zone */}
-                  <div
-                    onDrop={(e) => handleDrop(e, developer.id)}
-                    onDragOver={handleDragOver}
-                    className={`min-h-32 border-2 border-dashed border-gray-300 rounded-lg p-2 ${
-                      disabled ? 'bg-gray-100' : 'hover:border-blue-400 hover:bg-blue-50'
-                    }`}
-                  >
-                    {developer.assignedTickets.length === 0 ? (
-                      <div className="flex items-center justify-center h-32 text-gray-500">
-                        <p className="text-sm">Drop tickets here</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
-                        {developer.assignedTickets.map((ticket, index) => (
-                          <div
-                            key={ticket.id}
-                            className={`p-3 bg-white border rounded-lg shadow-sm ${
-                              ticket.isRisk ? 'border-red-200' : 'border-gray-200'
-                            }`}
-                          >
-                            <div className="flex items-start justify-between">
-                              <div className="flex-1">
-                                <div className="flex items-center space-x-2 mb-1">
-                                  {!disabled && (
-                                    <GripVertical className="h-4 w-4 text-gray-400 cursor-grab" />
-                                  )}
-                                  <span className="text-sm font-medium">{index + 1}.</span>
-                                </div>
-                                
-                                <h4 className="font-medium text-sm mb-2">{ticket.title}</h4>
-                                
-                                <div className="flex items-center space-x-2 mb-2">
-                                  <Badge variant="outline" className={getStatusColor(ticket)}>
-                                    {ticket.isRisk ? 'ETA Risk' : 'On Track'}
-                                  </Badge>
-                                  <Badge variant="secondary">{ticket.effort}d</Badge>
-                                </div>
-                                
-                                {ticket.projectedStart && ticket.projectedEnd && (
-                                  <p className="text-xs text-gray-500">
-                                    {formatDate(ticket.projectedStart)} → {formatDate(ticket.projectedEnd)}
-                                  </p>
-                                )}
-                                
-                                {ticket.eta && (
-                                  <p className="text-xs text-gray-500">
-                                    ETA: {ticket.eta}
-                                  </p>
-                                )}
-                              </div>
-                              
-                              {!disabled && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => onTicketUnassign(ticket.id)}
-                                  className="h-6 w-6 p-0"
-                                >
-                                  <X className="h-4 w-4" />
-                                </Button>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                    <div className={`text-xs ${isOverloaded ? 'text-red-600' : 'text-gray-500'}`}>
+                      {Math.round(utilization)}% capacity
+                    </div>
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+                
+                {isOverloaded && (
+                  <div className="flex items-center gap-2 p-2 bg-red-50 border border-red-200 rounded">
+                    <AlertTriangle className="h-4 w-4 text-red-500" />
+                    <span className="text-sm text-red-700">
+                      Overloaded by {totalEffort - developer.availableEffort} days
+                    </span>
+                  </div>
+                )}
+              </CardHeader>
+
+              <CardContent
+                className="min-h-32 space-y-2"
+                onDrop={(e) => handleDrop(e, developer.id)}
+                onDragOver={handleDragOver}
+              >
+                {developer.assignedTickets.length === 0 ? (
+                  <div className="flex items-center justify-center h-24 border-2 border-dashed border-gray-300 rounded-lg text-gray-500">
+                    Drop tickets here
+                  </div>
+                ) : (
+                  developer.assignedTickets.map((ticket, index) => (
+                    <div
+                      key={ticket.id}
+                      className={`p-3 border rounded-lg ${
+                        ticket.isRisk ? 'border-red-300 bg-red-50' : 'border-gray-200'
+                      } ${disabled ? 'opacity-50' : ''}`}
+                      draggable={!disabled}
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData('text/plain', JSON.stringify({
+                          ticketId: ticket.id,
+                          fromDeveloper: developer.id,
+                          fromIndex: index
+                        }));
+                      }}
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          {!disabled && (
+                            <GripVertical className="h-4 w-4 text-gray-400 cursor-move" />
+                          )}
+                          <span className="font-mono text-sm text-gray-600">
+                            #{ticket.rank || index + 1}
+                          </span>
+                          <span className="font-mono text-sm">{ticket.id}</span>
+                          <Badge className={getPriorityColor(ticket.priority)} variant="secondary">
+                            {ticket.priority}
+                          </Badge>
+                        </div>
+                        
+                        <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1 text-sm text-gray-500">
+                            <Clock className="h-3 w-3" />
+                            <span>{ticket.effort}d</span>
+                          </div>
+                          {!disabled && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0"
+                              onClick={() => onTicketUnassign(ticket.id)}
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+
+                      <h4 className="font-medium text-sm mb-2 line-clamp-2">{ticket.title}</h4>
+
+                      <div className="flex items-center justify-between text-xs text-gray-500">
+                        <div className="flex items-center gap-2">
+                          {ticket.eta && (
+                            <div className="flex items-center gap-1">
+                              <Calendar className="h-3 w-3" />
+                              <span>{ticket.eta}</span>
+                            </div>
+                          )}
+                          {ticket.projectedEnd && (
+                            <div className="flex items-center gap-1">
+                              <span>→ {ticket.projectedEnd.toLocaleDateString()}</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {ticket.isRisk && (
+                          <div className="flex items-center gap-1 text-red-600">
+                            <AlertTriangle className="h-3 w-3" />
+                            <span>ETA Risk</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+    </div>
   );
 };
