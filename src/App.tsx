@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Navigation } from "@/components/layout/Navigation";
 import Index from "./pages/Index";
 import SprintAnalysis from "./pages/SprintAnalysis";
+import DeveloperView from "./pages/DeveloperView";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -22,6 +23,7 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/sprint-analysis" element={<SprintAnalysis />} />
+            <Route path="/developer-view" element={<DeveloperView />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

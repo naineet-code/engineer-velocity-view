@@ -31,7 +31,7 @@ const navigationItems = [
     href: "/developer-view",
     icon: User,
     description: "Individual developer insights",
-    disabled: true
+    disabled: false
   },
   {
     name: "Ticket View",
