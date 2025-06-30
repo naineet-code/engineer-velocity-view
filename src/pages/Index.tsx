@@ -1,313 +1,320 @@
-import { useState, useCallback, useMemo } from "react";
-import { FilterToolbar } from "@/components/dashboard/FilterToolbar";
-import { DynamicKPICards } from "@/components/dashboard/DynamicKPICards";
-import { LiveGanttChart } from "@/components/dashboard/LiveGanttChart";
-import { InteractiveRiskCharts } from "@/components/dashboard/InteractiveRiskCharts";
-import { EnhancedActiveTicketsTable } from "@/components/dashboard/EnhancedActiveTicketsTable";
-import { InsightStrip } from "@/components/dashboard/InsightStrip";
+
+import React, { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { AlertTriangle, CheckCircle, Clock, User, Flag } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { useData } from "@/contexts/DataContext";
+import { KPICalculator } from "@/utils/kpiCalculations";
+import { CSVUpload } from "@/components/shared/CSVUpload";
+import { StandupSummaryExporter } from "@/components/shared/StandupSummaryExporter";
+import { DeveloperGantt } from "@/components/dashboard/DeveloperGantt";
 import { AgendaPanel } from "@/components/dashboard/AgendaPanel";
-import { Phase2PlanningPanel } from "@/components/dashboard/Phase2PlanningPanel";
-import { mockDashboardData } from "@/data/mockData";
-import { useToast } from "@/hooks/use-toast";
-import { simulationEngine } from "@/utils/ganttSimulation";
+import { ChartContainer } from "@/components/ui/chart";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 
 const Index = () => {
-  const { toast } = useToast();
-  const [showFilter, setShowFilter] = useState<'all' | 'blocked' | 'eta-risk'>('all');
-  const [selectedDeveloper, setSelectedDeveloper] = useState('all');
-  const [selectedBlockerSource, setSelectedBlockerSource] = useState('all');
-  const [lastRefresh, setLastRefresh] = useState(new Date());
-  const [agendaTickets, setAgendaTickets] = useState<string[]>([]);
-  const [viewMode, setViewMode] = useState<'today' | 'week'>('today');
-  const [showPhase2Panel, setShowPhase2Panel] = useState(false);
+  const navigate = useNavigate();
+  const { tickets } = useData();
+  const [agendaTickets, setAgendaTickets] = useState<any[]>([]);
+  const [showOnlyBlocked, setShowOnlyBlocked] = useState(false);
+  const [showOnlyRisk, setShowOnlyRisk] = useState(false);
 
-  // Real-time computed data using simulation engine
-  const simulatedData = useMemo(() => {
-    console.log('🚀 Running real-time dashboard simulation...');
-    
-    const simulatedDevelopers = mockDashboardData.developers.map(dev => 
-      simulationEngine.simulateDeveloperQueue(dev)
+  if (tickets.length === 0) {
+    return (
+      <div className="container mx-auto p-6">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Team Pulse Dashboard</h1>
+          <p className="text-gray-600">Upload your CSV data to get started with Aura</p>
+        </div>
+        <CSVUpload />
+      </div>
     );
-    
-    const allSimulatedTickets = simulatedDevelopers.flatMap(dev => dev.tickets);
-    
-    return {
-      developers: simulatedDevelopers,
-      tickets: allSimulatedTickets,
-      insights: simulationEngine.generateInsights(simulatedDevelopers)
-    };
-  }, [mockDashboardData, lastRefresh]);
+  }
 
-  // Derive data from simulation
-  const developers = mockDashboardData.developers.map(dev => dev.name);
-  const blockerSources = mockDashboardData.blockersBySource.map(b => b.name);
+  const calculator = new KPICalculator(tickets);
+  const riskTickets = calculator.getETARiskTickets();
+  const blockersBySource = calculator.getBlockersBySource();
 
-  // Enhanced filtering with simulation data
-  const filteredTickets = useMemo(() => {
-    let tickets = [...simulatedData.tickets];
-    
-    if (showFilter === 'blocked') tickets = tickets.filter(t => t.isBlocked);
-    if (showFilter === 'eta-risk') tickets = tickets.filter(t => t.isRisk);
-    if (selectedDeveloper !== 'all') tickets = tickets.filter(t => t.owner === selectedDeveloper);
-    if (selectedBlockerSource !== 'all') tickets = tickets.filter(t => t.blockedBy === selectedBlockerSource);
-    
-    return tickets;
-  }, [simulatedData.tickets, showFilter, selectedDeveloper, selectedBlockerSource]);
+  // Prepare chart data
+  const blockerChartData = Object.entries(blockersBySource).map(([source, count]) => ({
+    name: source,
+    value: count,
+    color: source === 'Success Team' ? '#ef4444' : source === 'Client' ? '#f59e0b' : '#3b82f6'
+  }));
 
-  // Enhanced KPI calculation with simulation data
-  const kpiData = useMemo(() => {
-    const blockedTickets = simulatedData.tickets.filter(t => t.isBlocked).length;
-    const avgDaysBlocked = simulatedData.tickets
-      .filter(t => t.isBlocked)
-      .reduce((sum, t) => sum + t.daysBlocked, 0) / Math.max(blockedTickets, 1);
-    
-    const etaRiskTickets = simulatedData.tickets.filter(t => t.isRisk).length;
-    const devsWithRisk = new Set(simulatedData.tickets.filter(t => t.isRisk).map(t => t.owner)).size;
-    
-    const blockedBreakdown = simulatedData.tickets
-      .filter(t => t.blockedBy)
-      .reduce((acc: { [key: string]: number }, t) => {
-        acc[t.blockedBy!] = (acc[t.blockedBy!] || 0) + 1;
-        return acc;
-      }, {});
+  const timeDistribution = calculator.getTimeDistribution();
+  const timeChartData = Object.entries(timeDistribution).map(([status, time]) => ({
+    status,
+    time: Math.round(time)
+  }));
 
-    return {
-      blockedTickets,
-      avgDaysBlocked: Math.round(avgDaysBlocked * 10) / 10,
-      etaRiskTickets,
-      devsWithRisk,
-      ticketsClosed7d: mockDashboardData.kpis.ticketsClosed7d,
-      blockedBreakdown
-    };
-  }, [simulatedData]);
-
-  // Phase 2 Planning Handlers
-  const handleTicketReorder = useCallback((ticketId: string, newRank: number) => {
-    console.log(`Reordering ticket ${ticketId} to rank ${newRank}`);
-    // In real implementation, this would update the backend
-    setLastRefresh(new Date()); // Trigger simulation refresh
-    toast({
-      title: "Ticket Reordered",
-      description: `${ticketId} moved to rank #${newRank}`,
+  // Group tickets by developer for Gantt
+  const developerGroups = tickets.reduce((groups: any, ticket) => {
+    if (!groups[ticket.developer]) {
+      groups[ticket.developer] = {
+        name: ticket.developer,
+        tickets: []
+      };
+    }
+    groups[ticket.developer].tickets.push({
+      id: ticket.ticket_id,
+      title: ticket.title,
+      status: ticket.status,
+      etaDate: new Date(ticket.ETA),
+      effortDays: ticket.effort_points,
+      isBlocked: ['Clarification', 'Business QC', 'Release Plan'].includes(ticket.status),
+      isRisk: riskTickets.some(risk => risk.ticket_id === ticket.ticket_id),
+      rank: ticket.rank,
+      owner: ticket.developer,
+      effortRemaining: ticket.effort_points,
+      projectedCompletion: ticket.ETA,
+      blockedBy: ticket.blocked_by,
+      daysBlocked: ticket.blocked_by ? 1 : 0
     });
-  }, [toast]);
+    return groups;
+  }, {});
 
-  const handleTicketReassign = useCallback((ticketId: string, newDeveloper: string) => {
-    console.log(`Reassigning ticket ${ticketId} to ${newDeveloper}`);
-    // In real implementation, this would update the backend
-    setLastRefresh(new Date()); // Trigger simulation refresh
-    toast({
-      title: "Ticket Reassigned",
-      description: `${ticketId} assigned to ${newDeveloper}`,
-    });
-  }, [toast]);
+  const developers = Object.values(developerGroups);
 
-  const handleEtaUpdate = useCallback((ticketId: string, newEta: string) => {
-    console.log(`Updating ETA for ticket ${ticketId} to ${newEta}`);
-    // In real implementation, this would update the backend
-    setLastRefresh(new Date()); // Trigger simulation refresh
-    toast({
-      title: "ETA Updated",
-      description: `${ticketId} ETA set to ${newEta}`,
-    });
-  }, [toast]);
-
-  const handleBlockerResolve = useCallback((ticketId: string) => {
-    console.log(`Resolving blocker for ticket ${ticketId}`);
-    // In real implementation, this would update the backend
-    setLastRefresh(new Date()); // Trigger simulation refresh
-    toast({
-      title: "Blocker Resolved",
-      description: `${ticketId} unblocked successfully`,
-    });
-  }, [toast]);
-
-  const handleSimulationUpdate = useCallback(() => {
-    setLastRefresh(new Date());
-  }, []);
-
-  const handleRefresh = useCallback(() => {
-    setLastRefresh(new Date());
-    toast({
-      title: "Live Data Refreshed",
-      description: "Dashboard simulation updated with latest projections.",
-    });
-  }, [toast]);
-
-  const handleTicketClick = useCallback((ticketId: string) => {
-    // Navigate to ticket detail view
-    window.location.href = `/ticket-view/${ticketId}`;
-  }, []);
-
-  const handleToggleAgenda = useCallback((ticketId: string) => {
-    setAgendaTickets(prev => 
-      prev.includes(ticketId) 
-        ? prev.filter(id => id !== ticketId)
-        : [...prev, ticketId]
-    );
-  }, []);
-
-  const handleDeveloperClick = useCallback((developer: string) => {
-    // Navigate to developer view with pre-selected developer
-    window.location.href = `/developer-view?dev=${encodeURIComponent(developer)}`;
-  }, []);
-
-  const handleBlockerSourceClick = useCallback((source: string) => {
-    setSelectedBlockerSource(source);
-    toast({
-      title: "Live Filter Applied", 
-      description: `Showing tickets blocked by ${source}`,
-    });
-  }, [toast]);
-
-  const handleExportAgenda = useCallback(() => {
-    const agendaData = simulatedData.tickets
-      .filter(t => agendaTickets.includes(t.id))
-      .map(t => `• ${t.id}: ${t.title} (${t.owner})${t.isRisk ? ' ⚠️' : ''}${t.isBlocked ? ' 🚫' : ''}`)
-      .join('\n');
-    
-    const insightsData = simulatedData.insights.map(insight => `📊 ${insight}`).join('\n');
-    
-    const fullAgenda = `Stand-up Agenda Items:\n${agendaData}\n\nKey Insights:\n${insightsData}`;
-    
-    navigator.clipboard.writeText(fullAgenda);
-    toast({
-      title: "Live Agenda Copied",
-      description: "Stand-up agenda with live insights copied to clipboard",
-    });
-  }, [agendaTickets, simulatedData, toast]);
-
-  // Create current filter object
-  const currentFilters = {
-    showFilter,
-    selectedDeveloper,
-    selectedBlockerSource
+  const handleTicketClick = (ticketId: string) => {
+    navigate(`/ticket-view/${ticketId}`);
   };
 
-  const agendaTicketData = simulatedData.tickets
-    .filter(t => agendaTickets.includes(t.id))
-    .map(t => ({
-      id: t.id,
-      title: t.title,
-      owner: t.owner,
-      isRisk: t.isRisk,
-      daysBlocked: t.daysBlocked,
-      eta: t.etaDate.toISOString().split('T')[0]
-    }));
+  const handleAddToAgenda = (ticket: any) => {
+    if (!agendaTickets.find(t => t.id === ticket.id)) {
+      setAgendaTickets([...agendaTickets, ticket]);
+    }
+  };
+
+  const handleRemoveFromAgenda = (ticketId: string) => {
+    setAgendaTickets(agendaTickets.filter(t => t.id !== ticketId));
+  };
+
+  const handleExportAgenda = () => {
+    let summary = '📋 **Stand-up Agenda Items**\n\n';
+    agendaTickets.forEach(ticket => {
+      summary += `• ${ticket.id}: ${ticket.title} (${ticket.owner})\n`;
+      if (ticket.isRisk) summary += '  ⚠️ ETA Risk\n';
+      if (ticket.daysBlocked > 0) summary += `  🔴 Blocked ${ticket.daysBlocked}d by ${ticket.blockedBy}\n`;
+      summary += '\n';
+    });
+
+    const blob = new Blob([summary], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `agenda-${new Date().toISOString().split('T')[0]}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
 
   return (
-    <div className="p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
+    <div className="container mx-auto p-6 space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Team Pulse Dashboard</h1>
+          <p className="text-gray-600">Real-time engineering workflow insights</p>
+        </div>
+        <div className="flex gap-2">
+          <StandupSummaryExporter />
+          <Button onClick={() => navigate('/sprint-planning')} className="flex items-center gap-2">
+            <Flag className="h-4 w-4" />
+            Create Sprint
+          </Button>
+        </div>
+      </div>
+
+      <CSVUpload />
+
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+        <Card className="rounded-2xl">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Blocked Tickets</p>
+                <p className="text-2xl font-bold text-red-600">{calculator.getTotalBlockedTickets()}</p>
+              </div>
+              <AlertTriangle className="h-8 w-8 text-red-500" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-2xl">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Avg Days Blocked</p>
+                <p className="text-2xl font-bold text-amber-600">{calculator.getAverageDaysBlocked()}d</p>
+              </div>
+              <Clock className="h-8 w-8 text-amber-500" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-2xl">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">ETA Risk</p>
+                <p className="text-2xl font-bold text-red-600">{riskTickets.length}</p>
+              </div>
+              <AlertTriangle className="h-8 w-8 text-red-500" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-2xl">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Devs with Risk</p>
+                <p className="text-2xl font-bold text-orange-600">{calculator.getDevelopersWithRisk()}</p>
+              </div>
+              <User className="h-8 w-8 text-orange-500" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-2xl">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Closed Yesterday</p>
+                <p className="text-2xl font-bold text-green-600">{calculator.getTicketsClosedYesterday()}</p>
+              </div>
+              <CheckCircle className="h-8 w-8 text-green-500" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-2xl">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Closed (7d)</p>
+                <p className="text-2xl font-bold text-green-600">{calculator.getTicketsClosedLast7Days()}</p>
+              </div>
+              <CheckCircle className="h-8 w-8 text-green-500" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Filter Toggles */}
+      <div className="flex gap-4">
+        <Button
+          variant={showOnlyBlocked ? "default" : "outline"}
+          onClick={() => setShowOnlyBlocked(!showOnlyBlocked)}
+          className="rounded-2xl"
+        >
+          Show Only Blocked
+        </Button>
+        <Button
+          variant={showOnlyRisk ? "default" : "outline"}
+          onClick={() => setShowOnlyRisk(!showOnlyRisk)}
+          className="rounded-2xl"
+        >
+          Show Only ETA Risk
+        </Button>
+      </div>
+
+      {/* Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card className="rounded-2xl">
+          <CardHeader>
+            <CardTitle>Time Distribution by Status</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ChartContainer config={{}}>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={timeChartData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="status" />
+                  <YAxis />
+                  <Bar dataKey="time" fill="#3b82f6" />
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartContainer>
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-2xl">
+          <CardHeader>
+            <CardTitle>Blockers by Source</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ChartContainer config={{}}>
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={blockerChartData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, value }) => `${name}: ${value}`}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {blockerChartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                </PieChart>
+              </ResponsiveContainer>
+            </ChartContainer>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Developer Gantt */}
+      <DeveloperGantt 
+        developers={developers} 
+        onTicketClick={handleTicketClick}
+      />
+
+      {/* AI Insights */}
+      <Card className="rounded-2xl bg-blue-50 border-blue-200">
+        <CardContent className="p-4">
+          <div className="flex items-start gap-3">
+            <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                Team Pulse Dashboard 
-                <span className="text-lg font-normal text-green-600 ml-2">🔴 LIVE</span>
-              </h1>
-              <p className="text-gray-600">
-                Real-time Engineering Stand-up • Live Queue Simulation • Auto-updating Insights
-              </p>
-            </div>
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={() => window.location.href = '/sprint-planning'}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
-              >
-                <span>🚀 Sprint Planning</span>
-              </button>
-              <button
-                onClick={() => window.location.href = '/sprint-analysis'}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2"
-              >
-                <span>📊 Sprint Analysis</span>
-              </button>
+              <h3 className="font-medium text-blue-900 mb-2">AI Insights</h3>
+              <div className="space-y-2">
+                {calculator.getTotalBlockedTickets() > 0 && (
+                  <p className="text-sm text-blue-800">
+                    🔴 {calculator.getTotalBlockedTickets()} tickets currently blocked - consider escalation
+                  </p>
+                )}
+                {riskTickets.length > 0 && (
+                  <p className="text-sm text-blue-800">
+                    ⚠️ {riskTickets.length} tickets at ETA risk - review capacity planning
+                  </p>
+                )}
+                {calculator.getTicketsClosedLast7Days() > 0 && (
+                  <p className="text-sm text-blue-800">
+                    ✅ Good velocity: {calculator.getTicketsClosedLast7Days()} tickets completed this week
+                  </p>
+                )}
+              </div>
             </div>
           </div>
-        </div>
+        </CardContent>
+      </Card>
 
-        {/* Enhanced Filter Toolbar */}
-        <FilterToolbar
-          showFilter={showFilter}
-          onShowFilterChange={setShowFilter}
-          selectedDeveloper={selectedDeveloper}
-          onDeveloperChange={setSelectedDeveloper}
-          selectedBlockerSource={selectedBlockerSource}
-          onBlockerSourceChange={setSelectedBlockerSource}
-          developers={developers}
-          blockerSources={blockerSources}
-          onRefresh={handleRefresh}
-          lastRefresh={lastRefresh}
-        />
-
-        {/* Live KPI Cards */}
-        <DynamicKPICards kpiData={kpiData} />
-
-        {/* Live Gantt Chart with Simulation */}
-        <div className="bg-white rounded-lg shadow-sm border p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold text-gray-900">
-              Live Developer Queue Simulation
-            </h2>
-            <div className="flex items-center space-x-2 text-sm text-gray-500">
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-              <span>Real-time projection</span>
-            </div>
-          </div>
-          <LiveGanttChart 
-            developers={mockDashboardData.developers}
-            onTicketClick={handleTicketClick}
-            filters={currentFilters}
-          />
-        </div>
-
-        {/* Interactive Risk Analysis Charts */}
-        <InteractiveRiskCharts 
-          riskByDeveloper={mockDashboardData.riskByDeveloper}
-          blockersBySource={mockDashboardData.blockersBySource}
-          onDeveloperClick={handleDeveloperClick}
-          onBlockerSourceClick={handleBlockerSourceClick}
-        />
-
-        {/* Enhanced Active Tickets Table with Live Data */}
-        <div className="bg-white rounded-lg shadow-sm border p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">
-            Live Risk & Blocked Tickets 
-            <span className="text-sm font-normal ml-2">({filteredTickets.length} projected)</span>
-          </h2>
-          <EnhancedActiveTicketsTable 
-            tickets={mockDashboardData.activeTickets.map(t => ({ 
-              ...t, 
-              addedToAgenda: agendaTickets.includes(t.id) 
-            }))}
-            onTicketClick={handleTicketClick}
-            onToggleAgenda={handleToggleAgenda}
-          />
-        </div>
-
-        {/* Live AI Insights */}
-        <InsightStrip />
-
-        {/* Enhanced Agenda Panel */}
+      {/* Agenda Panel */}
+      {agendaTickets.length > 0 && (
         <AgendaPanel
-          tickets={agendaTicketData}
-          onRemoveFromAgenda={handleToggleAgenda}
+          tickets={agendaTickets}
+          onRemoveFromAgenda={handleRemoveFromAgenda}
           onExportAgenda={handleExportAgenda}
         />
-
-        {/* Phase 2 Interactive Planning Panel */}
-        {showPhase2Panel && (
-          <Phase2PlanningPanel
-            developers={simulatedData.developers}
-            onTicketReorder={handleTicketReorder}
-            onTicketReassign={handleTicketReassign}
-            onEtaUpdate={handleEtaUpdate}
-            onBlockerResolve={handleBlockerResolve}
-            onSimulationUpdate={handleSimulationUpdate}
-          />
-        )}
-      </div>
+      )}
     </div>
   );
 };
