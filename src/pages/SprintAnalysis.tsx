@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -29,8 +28,6 @@ import {
   PieChart,
   Pie,
   Cell,
-  LineChart,
-  Line,
   ScatterChart,
   Scatter
 } from "recharts";
@@ -43,6 +40,9 @@ import {
   TrendingUp,
   Download
 } from "lucide-react";
+import AIRecommendationsPanel from "@/components/dashboard/AIRecommendationsPanel";
+import SprintComparison from "@/components/dashboard/SprintComparison";
+import RetrospectiveExport from "@/components/dashboard/RetrospectiveExport";
 
 // Mock data for demonstration
 const sprintKPIs = {
@@ -116,12 +116,58 @@ const SprintAnalysis = () => {
   const [selectedSprint, setSelectedSprint] = useState("Sprint 2");
   const [selectedDeveloper, setSelectedDeveloper] = useState("all");
 
+  // Enhanced insights with more actionable recommendations
   const insights = [
     "Clarification added avg 3.2 days per ticket this sprint",
-    "60% of dropped tickets had insufficient acceptance criteria",
+    "60% of dropped tickets had insufficient acceptance criteria", 
     "Review time increased by 40% vs previous sprint",
-    "Client blockers accounted for 35% of all delays"
+    "Client blockers accounted for 35% of all delays",
+    "3 tickets blocked >5 days need escalation process",
+    "Dev workload imbalance: Charlie had 4/5 ETA misses"
   ];
+
+  // Enhanced ticket data with drop reasons
+  const enhancedTicketData = ticketData.map(ticket => ({
+    ...ticket,
+    dropReason: ticket.status === "Dropped" ? 
+      (ticket.clarifications > 2 ? "No AC" : "Client Pullback") : null
+  }));
+
+  // Cycle time data for new chart
+  const cycleTimeData = [
+    { stage: "Clarification", currentSprint: 2.3, previousSprint: 1.8 },
+    { stage: "In Dev", currentSprint: 5.8, previousSprint: 4.2 },
+    { stage: "Tech QC", currentSprint: 1.2, previousSprint: 1.5 },
+    { stage: "Business QC", currentSprint: 2.1, previousSprint: 1.9 },
+    { stage: "Release Plan", currentSprint: 0.8, previousSprint: 0.6 },
+    { stage: "Blocked", currentSprint: 1.9, previousSprint: 1.2 },
+  ];
+
+  // ETA vs Actual scatter plot data
+  const etaVsActualData = enhancedTicketData.map(ticket => ({
+    eta: ticket.effort,
+    actual: ticket.duration || ticket.effort * 1.2,
+    status: ticket.status,
+    title: ticket.title,
+    id: ticket.id
+  }));
+
+  // Drop reasons pie chart data
+  const dropReasons = enhancedTicketData
+    .filter(t => t.status === "Dropped")
+    .reduce((acc, ticket) => {
+      const reason = ticket.dropReason || "Unknown";
+      acc[reason] = (acc[reason] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+  const dropReasonsData = Object.entries(dropReasons).map(([reason, count]) => ({
+    name: reason,
+    value: count,
+    color: reason === "No AC" ? "#ef4444" : reason === "Client Pullback" ? "#f59e0b" : "#6b7280"
+  }));
+
+  const sprints = ["Sprint 1", "Sprint 2", "Sprint 3"];
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -227,7 +273,19 @@ const SprintAnalysis = () => {
           </Card>
         </div>
 
-        {/* Charts Grid */}
+        {/* AI Recommendations Panel */}
+        <AIRecommendationsPanel 
+          ticketData={enhancedTicketData} 
+          sprintKPIs={sprintKPIs}
+        />
+
+        {/* Sprint Comparison */}
+        <SprintComparison 
+          sprints={sprints}
+          currentSprint={selectedSprint}
+        />
+
+        {/* Enhanced Charts Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Completion Chart */}
           <Card>
@@ -278,26 +336,83 @@ const SprintAnalysis = () => {
             </CardContent>
           </Card>
 
-          {/* Stage Time Breakdown */}
+          {/* New: Cycle Time Breakdown */}
           <Card>
             <CardHeader>
-              <CardTitle>Average Time by Stage</CardTitle>
-              <CardDescription>Days spent in each development stage</CardDescription>
+              <CardTitle>Cycle Time by Stage</CardTitle>
+              <CardDescription>Average days per development stage</CardDescription>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={stageTimeData} layout="horizontal">
+                <BarChart data={cycleTimeData} layout="horizontal">
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis type="number" />
                   <YAxis dataKey="stage" type="category" width={100} />
                   <Tooltip />
-                  <Bar dataKey="days" fill="#3b82f6" />
+                  <Bar dataKey="currentSprint" fill="#3b82f6" name="Current Sprint" />
+                  <Bar dataKey="previousSprint" fill="#94a3b8" name="Previous Sprint" />
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>
           </Card>
 
-          {/* AI Insights */}
+          {/* New: Drop Reasons Analysis */}
+          {dropReasonsData.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Why Tickets Were Dropped</CardTitle>
+                <CardDescription>Root cause analysis of dropped work</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={dropReasonsData}
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={100}
+                      dataKey="value"
+                      label={({ name, value }) => `${name}: ${value}`}
+                    >
+                      {dropReasonsData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* New: ETA vs Actual Scatter Plot */}
+          <Card>
+            <CardHeader>
+              <CardTitle>ETA vs Actual Delivery</CardTitle>
+              <CardDescription>Estimation accuracy analysis</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={300}>
+                <ScatterChart data={etaVsActualData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="eta" name="ETA" />
+                  <YAxis dataKey="actual" name="Actual" />
+                  <Tooltip 
+                    formatter={(value, name) => [value, name]}
+                    labelFormatter={(label, payload) => 
+                      payload && payload[0] ? `${payload[0].payload.title}` : ''
+                    }
+                  />
+                  <Scatter 
+                    dataKey="actual" 
+                    fill="#3b82f6"
+                  />
+                </ScatterChart>
+              </ResponsiveContainer>
+            </CardContent>
+          )}
+
+          {/* Enhanced AI Insights */}
           <Card>
             <CardHeader>
               <CardTitle>Sprint Insights</CardTitle>
@@ -316,7 +431,7 @@ const SprintAnalysis = () => {
           </Card>
         </div>
 
-        {/* Sprint Ticket Table */}
+        {/* Enhanced Sprint Ticket Table */}
         <Card>
           <CardHeader>
             <CardTitle>Sprint Ticket Details</CardTitle>
@@ -335,10 +450,11 @@ const SprintAnalysis = () => {
                   <TableHead>ETA Missed</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Clarifications</TableHead>
+                  <TableHead>Drop Reason</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {ticketData.map((ticket) => (
+                {enhancedTicketData.map((ticket) => (
                   <TableRow key={ticket.id} className="hover:bg-gray-50">
                     <TableCell className="font-medium">{ticket.id}</TableCell>
                     <TableCell>{ticket.title}</TableCell>
@@ -361,12 +477,27 @@ const SprintAnalysis = () => {
                       </Badge>
                     </TableCell>
                     <TableCell>{ticket.clarifications}</TableCell>
+                    <TableCell>
+                      {ticket.dropReason && (
+                        <Badge variant="outline" className="text-xs">
+                          {ticket.dropReason}
+                        </Badge>
+                      )}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           </CardContent>
         </Card>
+
+        {/* Retrospective Export */}
+        <RetrospectiveExport 
+          sprintName={selectedSprint}
+          sprintKPIs={sprintKPIs}
+          ticketData={enhancedTicketData}
+          insights={insights}
+        />
       </div>
     </div>
   );
