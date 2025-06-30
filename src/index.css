@@ -102,163 +102,71 @@ All colors MUST be HSL.
 
 /* Enhanced component styles */
 @layer components {
-  .page-container {
-    @apply max-w-7xl mx-auto px-6 py-8;
+  .modern-card {
+    @apply bg-white/80 backdrop-blur-sm border border-slate-200/60 rounded-xl shadow-sm hover:shadow-md transition-all duration-300;
   }
 
-  .section-header {
-    @apply mb-8 space-y-2;
+  .modern-card-header {
+    @apply border-b border-slate-100 px-6 py-4 bg-gradient-to-r from-slate-50 to-transparent;
   }
 
-  .section-title {
-    @apply text-2xl font-bold text-gray-900;
+  .modern-nav-item {
+    @apply flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 group relative overflow-hidden;
   }
 
-  .section-subtitle {
-    @apply text-base text-gray-600;
+  .modern-nav-item-active {
+    @apply bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 shadow-sm border border-blue-100;
   }
 
-  .kpi-card {
-    @apply bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200 p-6;
+  .modern-nav-item-inactive {
+    @apply text-slate-600 hover:bg-slate-50 hover:text-slate-900;
   }
 
-  .kpi-card-header {
-    @apply flex items-center justify-between mb-4;
+  .glass-panel {
+    @apply bg-white/70 backdrop-blur-md border border-white/20 rounded-2xl shadow-xl;
   }
 
-  .kpi-card-title {
-    @apply text-sm font-semibold text-gray-600 uppercase tracking-wide;
+  .metric-card {
+    @apply bg-gradient-to-br from-white to-slate-50 rounded-xl border border-slate-200 p-6 hover:shadow-lg transition-all duration-300;
   }
 
-  .kpi-card-value {
-    @apply text-3xl font-bold;
+  .primary-gradient {
+    @apply bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700;
   }
 
-  .kpi-card-icon {
-    @apply w-12 h-12 rounded-lg flex items-center justify-center;
+  .success-gradient {
+    @apply bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600;
   }
 
-  .data-table {
-    @apply bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden;
+  .warning-gradient {
+    @apply bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600;
   }
 
-  .data-table-header {
-    @apply bg-gray-50 px-6 py-4 border-b border-gray-200;
+  .danger-gradient {
+    @apply bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600;
   }
 
-  .data-table-content {
-    @apply p-6;
+  .animated-border {
+    @apply relative after:absolute after:inset-0 after:border-2 after:border-blue-200 after:rounded-xl after:animate-pulse;
   }
 
-  .chart-container {
-    @apply bg-white rounded-xl border border-gray-200 shadow-sm p-6;
+  .drag-handle {
+    @apply text-slate-400 hover:text-slate-600 cursor-grab active:cursor-grabbing transition-colors;
   }
 
-  .chart-header {
-    @apply mb-6 pb-4 border-b border-gray-100;
+  .ticket-card {
+    @apply bg-white border border-slate-200 rounded-lg p-3 hover:shadow-md transition-all duration-200 cursor-pointer;
   }
 
-  .chart-title {
-    @apply text-lg font-semibold text-gray-900;
+  .ticket-card-dragging {
+    @apply shadow-lg rotate-2 scale-105 opacity-90;
   }
 
-  .chart-subtitle {
-    @apply text-sm text-gray-600 mt-1;
+  .drop-zone {
+    @apply min-h-[100px] border-2 border-dashed border-slate-200 rounded-lg p-4 transition-colors;
   }
 
-  .status-badge-blocked {
-    @apply bg-red-50 text-red-700 border border-red-200 px-3 py-1 rounded-full text-xs font-medium;
-  }
-  
-  .status-badge-risk {
-    @apply bg-amber-50 text-amber-700 border border-amber-200 px-3 py-1 rounded-full text-xs font-medium;
-  }
-  
-  .status-badge-success {
-    @apply bg-green-50 text-green-700 border border-green-200 px-3 py-1 rounded-full text-xs font-medium;
-  }
-
-  .status-badge-info {
-    @apply bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1 rounded-full text-xs font-medium;
-  }
-
-  .nav-item {
-    @apply flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200;
-  }
-
-  .nav-item-active {
-    @apply bg-blue-50 text-blue-700 border border-blue-200 shadow-sm;
-  }
-
-  .nav-item-inactive {
-    @apply text-gray-600 hover:bg-gray-50 hover:text-gray-900;
-  }
-
-  .button-primary {
-    @apply bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg transition-colors duration-200 flex items-center space-x-2;
-  }
-
-  .button-secondary {
-    @apply bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium px-4 py-2 rounded-lg transition-colors duration-200 flex items-center space-x-2;
-  }
-
-  .button-outline {
-    @apply border border-gray-300 hover:bg-gray-50 text-gray-700 font-medium px-4 py-2 rounded-lg transition-colors duration-200 flex items-center space-x-2;
-  }
-
-  .input-field {
-    @apply w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-200;
-  }
-
-  .dropdown-menu {
-    @apply bg-white border border-gray-200 rounded-lg shadow-lg z-50 p-2 min-w-48;
-  }
-
-  .dropdown-item {
-    @apply px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md cursor-pointer transition-colors duration-150;
-  }
-
-  .tooltip-content {
-    @apply bg-gray-900 text-white px-3 py-2 rounded-lg text-sm shadow-lg z-50;
-  }
-
-  .loading-skeleton {
-    @apply animate-pulse bg-gray-200 rounded;
-  }
-
-  .error-message {
-    @apply text-red-600 text-sm mt-2 flex items-center space-x-2;
-  }
-
-  .success-message {
-    @apply text-green-600 text-sm mt-2 flex items-center space-x-2;
-  }
-
-  .grid-layout {
-    @apply grid gap-6;
-  }
-
-  .grid-2 {
-    @apply grid-cols-1 lg:grid-cols-2;
-  }
-
-  .grid-3 {
-    @apply grid-cols-1 md:grid-cols-2 lg:grid-cols-3;
-  }
-
-  .grid-4 {
-    @apply grid-cols-1 md:grid-cols-2 lg:grid-cols-4;
-  }
-
-  .grid-5 {
-    @apply grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5;
-  }
-
-  .fade-in {
-    @apply animate-in fade-in duration-300;
-  }
-
-  .slide-in {
-    @apply animate-in slide-in-from-bottom-4 duration-300;
+  .drop-zone-active {
+    @apply border-blue-400 bg-blue-50/50;
   }
 }

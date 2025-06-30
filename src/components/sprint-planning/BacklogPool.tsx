@@ -2,11 +2,11 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Search, Filter } from 'lucide-react';
+import { Search, Filter, GripVertical } from 'lucide-react';
+import { useDraggable } from '@dnd-kit/core';
 import { PlanningTicket } from '@/pages/SprintCreation';
 
 interface BacklogPoolProps {
@@ -17,21 +17,24 @@ interface BacklogPoolProps {
   onFilterChange: (type: 'all' | 'bug' | 'story' | 'task') => void;
   showEtaReady: boolean;
   onShowEtaReadyChange: (show: boolean) => void;
-  onTicketAssign: (ticketId: string, developerId: string) => void;
   disabled: boolean;
 }
 
-export const BacklogPool: React.FC<BacklogPoolProps> = ({
-  tickets,
-  searchQuery,
-  onSearchChange,
-  filterType,
-  onFilterChange,
-  showEtaReady,
-  onShowEtaReadyChange,
-  onTicketAssign,
-  disabled
-}) => {
+const DraggableTicket: React.FC<{ ticket: PlanningTicket; disabled: boolean }> = ({ ticket, disabled }) => {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: `backlog-${ticket.id}`,
+    disabled,
+    data: {
+      type: 'ticket',
+      ticket,
+      source: 'backlog'
+    }
+  });
+
+  const style = transform ? {
+    transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+  } : undefined;
+
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case 'critical': return 'bg-red-100 text-red-800';
@@ -43,8 +46,50 @@ export const BacklogPool: React.FC<BacklogPoolProps> = ({
   };
 
   return (
-    <Card className="bg-white rounded-2xl border border-gray-200 shadow-sm">
-      <CardHeader className="pb-4">
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`ticket-card ${isDragging ? 'ticket-card-dragging' : ''} ${disabled ? 'opacity-60 cursor-not-allowed' : ''}`}
+      {...attributes}
+    >
+      <div className="flex items-start justify-between">
+        <div className="flex items-start space-x-2 flex-1">
+          {!disabled && (
+            <div {...listeners} className="drag-handle mt-1">
+              <GripVertical className="h-4 w-4" />
+            </div>
+          )}
+          <div className="flex-1 min-w-0">
+            <h4 className="font-medium text-sm text-gray-900 truncate">{ticket.id}</h4>
+            <p className="text-xs text-gray-600 mt-1 line-clamp-2">{ticket.title}</p>
+          </div>
+        </div>
+        <div className="ml-2 flex flex-col items-end space-y-1 flex-shrink-0">
+          <Badge className={getPriorityColor(ticket.priority)}>
+            {ticket.priority}
+          </Badge>
+          <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded">
+            {ticket.effort}d
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export const BacklogPool: React.FC<BacklogPoolProps> = ({
+  tickets,
+  searchQuery,
+  onSearchChange,
+  filterType,
+  onFilterChange,
+  showEtaReady,
+  onShowEtaReadyChange,
+  disabled
+}) => {
+  return (
+    <Card className="modern-card">
+      <CardHeader className="modern-card-header pb-4">
         <CardTitle className="text-lg font-semibold text-gray-900">Backlog Pool</CardTitle>
         <div className="space-y-3">
           <div className="relative">
@@ -84,28 +129,16 @@ export const BacklogPool: React.FC<BacklogPoolProps> = ({
       
       <CardContent className="space-y-2 max-h-96 overflow-y-auto">
         {tickets.length === 0 ? (
-          <p className="text-sm text-gray-500 text-center py-4">No tickets found</p>
+          <div className="drop-zone text-center">
+            <p className="text-sm text-gray-500">No tickets found</p>
+          </div>
         ) : (
           tickets.map((ticket) => (
-            <div
-              key={ticket.id}
-              className="p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer"
-              draggable={!disabled}
-              onClick={() => !disabled && onTicketAssign(ticket.id, 'unassigned')}
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <h4 className="font-medium text-sm text-gray-900">{ticket.id}</h4>
-                  <p className="text-xs text-gray-600 mt-1 line-clamp-2">{ticket.title}</p>
-                </div>
-                <div className="ml-2 flex flex-col items-end space-y-1">
-                  <Badge className={getPriorityColor(ticket.priority)}>
-                    {ticket.priority}
-                  </Badge>
-                  <span className="text-xs text-gray-500">{ticket.effort}d</span>
-                </div>
-              </div>
-            </div>
+            <DraggableTicket 
+              key={ticket.id} 
+              ticket={ticket} 
+              disabled={disabled}
+            />
           ))
         )}
       </CardContent>
