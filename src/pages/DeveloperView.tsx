@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -8,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { 
   User, 
   Clock, 
@@ -19,9 +19,16 @@ import {
   Copy,
   Download,
   Pin,
-  RotateCcw
+  RotateCcw,
+  Settings
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, PieChart, Pie, Cell, LineChart, Line } from "recharts";
+
+// Import new components
+import { SmartNudgesPanel } from "@/components/dashboard/SmartNudgesPanel";
+import { TodaysPlanPanel } from "@/components/dashboard/TodaysPlanPanel";
+import { ClarificationLoopMap } from "@/components/dashboard/ClarificationLoopMap";
+import { PersonalGoalTracker } from "@/components/dashboard/PersonalGoalTracker";
 
 // Mock data
 const developers = [
@@ -103,6 +110,8 @@ const DeveloperView = () => {
   const [selectedDeveloper, setSelectedDeveloper] = useState("sarah");
   const [tickets, setTickets] = useState(mockTickets);
   const [managerNotes, setManagerNotes] = useState("");
+  const [showGoalTracker, setShowGoalTracker] = useState(false);
+  const [calendarView, setCalendarView] = useState(false);
 
   const selectedDevInfo = developers.find(dev => dev.id === selectedDeveloper);
 
@@ -184,6 +193,17 @@ const DeveloperView = () => {
     "Started 2 tickets out of rank order — delayed others by 3 days"
   ];
 
+  const handleTicketStart = (ticketId: string) => {
+    setTickets(prev => prev.map(ticket => 
+      ticket.id === ticketId ? { ...ticket, status: "In Dev" } : ticket
+    ));
+    console.log(`Started ticket ${ticketId}`);
+  };
+
+  const handleTicketDefer = (ticketId: string, comment: string) => {
+    console.log(`Deferred ticket ${ticketId}: ${comment}`);
+  };
+
   return (
     <TooltipProvider>
       <div className="container mx-auto p-6 space-y-6">
@@ -198,23 +218,29 @@ const DeveloperView = () => {
               <p className="text-gray-600">{selectedDevInfo?.name}</p>
             </div>
           </div>
-          <Select value={selectedDeveloper} onValueChange={setSelectedDeveloper}>
-            <SelectTrigger className="w-48">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {developers.map(dev => (
-                <SelectItem key={dev.id} value={dev.id}>
-                  <div className="flex items-center space-x-2">
-                    <div className="w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center text-xs">
-                      {dev.avatar}
+          <div className="flex items-center space-x-4">
+            <Select value={selectedDeveloper} onValueChange={setSelectedDeveloper}>
+              <SelectTrigger className="w-48">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {developers.map(dev => (
+                  <SelectItem key={dev.id} value={dev.id}>
+                    <div className="flex items-center space-x-2">
+                      <div className="w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center text-xs">
+                        {dev.avatar}
+                      </div>
+                      <span>{dev.name}</span>
                     </div>
-                    <span>{dev.name}</span>
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <SmartNudgesPanel 
+              developerName={selectedDevInfo?.name || ""} 
+              tickets={tickets}
+            />
+          </div>
         </div>
 
         {/* KPI Cards */}
@@ -239,11 +265,31 @@ const DeveloperView = () => {
           ))}
         </div>
 
+        {/* Today's Plan */}
+        <TodaysPlanPanel 
+          tickets={tickets}
+          onTicketStart={handleTicketStart}
+          onTicketDefer={handleTicketDefer}
+        />
+
         {/* Current Queue Table */}
         <Card>
           <CardHeader>
-            <CardTitle>Current Queue (Rank Order)</CardTitle>
-            <CardDescription>Active tickets assigned to {selectedDevInfo?.name}</CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Current Queue (Rank Order)</CardTitle>
+                <CardDescription>Active tickets assigned to {selectedDevInfo?.name}</CardDescription>
+              </div>
+              <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    checked={calendarView}
+                    onCheckedChange={setCalendarView}
+                  />
+                  <span className="text-sm">Calendar View</span>
+                </div>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             <Table>
@@ -324,61 +370,175 @@ const DeveloperView = () => {
           </CardContent>
         </Card>
 
-        {/* Charts Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Time Allocation */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Time Allocation (30 Days)</CardTitle>
-              <CardDescription>How time was spent across activities</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ChartContainer config={{
-                development: { label: "Development", color: "#22c55e" },
-                blocked: { label: "Blocked", color: "#ef4444" },
-                clarification: { label: "Clarification", color: "#f59e0b" }
-              }}>
-                <PieChart>
-                  <Pie
-                    data={timeAllocationData}
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={80}
-                    dataKey="value"
-                    label={({ name, percent }) => `${name} ${Math.round(percent)}%`}
-                  >
-                    {timeAllocationData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <ChartTooltip />
-                </PieChart>
-              </ChartContainer>
-            </CardContent>
-          </Card>
+        {/* Enhanced Layout with New Components */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Column */}
+          <div className="space-y-6">
+            <ClarificationLoopMap tickets={tickets} />
+            <PersonalGoalTracker isVisible={showGoalTracker} />
+          </div>
 
-          {/* Velocity Graph */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Weekly Velocity</CardTitle>
-              <CardDescription>Effort completed and average ticket age</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ChartContainer config={{
-                effortClosed: { label: "Effort Closed", color: "#3b82f6" },
-                avgAge: { label: "Avg Age", color: "#f59e0b" }
-              }}>
-                <BarChart data={velocityData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="week" />
-                  <YAxis />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Bar dataKey="effortClosed" fill="#3b82f6" />
-                  <Line dataKey="avgAge" stroke="#f59e0b" />
-                </BarChart>
-              </ChartContainer>
-            </CardContent>
-          </Card>
+          {/* Middle Column - Charts */}
+          <div className="space-y-6">
+            {/* Time Allocation */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Time Allocation (30 Days)</CardTitle>
+                <CardDescription>How time was spent across activities</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ChartContainer config={{
+                  development: { label: "Development", color: "#22c55e" },
+                  blocked: { label: "Blocked", color: "#ef4444" },
+                  clarification: { label: "Clarification", color: "#f59e0b" }
+                }}>
+                  <PieChart>
+                    <Pie
+                      data={timeAllocationData}
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={80}
+                      dataKey="value"
+                      label={({ name, percent }) => `${name} ${Math.round(percent)}%`}
+                    >
+                      {timeAllocationData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <ChartTooltip />
+                  </PieChart>
+                </ChartContainer>
+              </CardContent>
+            </Card>
+
+            {/* Velocity Graph */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Weekly Velocity</CardTitle>
+                <CardDescription>Effort completed and average ticket age</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ChartContainer config={{
+                  effortClosed: { label: "Effort Closed", color: "#3b82f6" },
+                  avgAge: { label: "Avg Age", color: "#f59e0b" }
+                }}>
+                  <BarChart data={velocityData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="week" />
+                    <YAxis />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Bar dataKey="effortClosed" fill="#3b82f6" />
+                    <Line dataKey="avgAge" stroke="#f59e0b" />
+                  </BarChart>
+                </ChartContainer>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Right Column */}
+          <div className="space-y-6">
+            {/* Settings Panel */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center space-x-2 text-lg">
+                  <Settings className="h-5 w-5 text-gray-600" />
+                  <span>View Options</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm">Show Goal Tracker</span>
+                  <Switch
+                    checked={showGoalTracker}
+                    onCheckedChange={setShowGoalTracker}
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm">Calendar View</span>
+                  <Switch
+                    checked={calendarView}
+                    onCheckedChange={setCalendarView}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* 1-on-1 Agenda */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <span>1-on-1 Agenda</span>
+                  <div className="flex space-x-2">
+                    <Button variant="ghost" size="sm">
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="sm">
+                      <Download className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {oneOnOneTickets.length > 0 ? (
+                  <div className="space-y-2">
+                    {oneOnOneTickets.map(ticket => (
+                      <div key={ticket.id} className="p-2 bg-gray-50 rounded">
+                        <p className="font-medium text-sm">{ticket.id}</p>
+                        <p className="text-xs text-gray-600">{ticket.title}</p>
+                        {ticket.daysBlocked > 0 && (
+                          <p className="text-xs text-red-600">Blocked {ticket.daysBlocked} days</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-500 italic">No tickets flagged for discussion</p>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Recent Activity */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Recent Activity</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {recentActivity.map((activity, index) => (
+                    <div key={index} className="flex items-center space-x-3">
+                      <div className={`w-2 h-2 rounded-full ${
+                        activity.type === "completed" ? "bg-green-500" :
+                        activity.type === "blocked" ? "bg-red-500" :
+                        activity.type === "start" ? "bg-blue-500" : "bg-yellow-500"
+                      }`} />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">{activity.event}</p>
+                        <p className="text-xs text-gray-600">{activity.ticket}</p>
+                        <p className="text-xs text-gray-400">{activity.date}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Manager Notes */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Manager Reflection Notes</CardTitle>
+                <CardDescription>Private coaching notes (auto-saved)</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Textarea
+                  placeholder="What's holding them back? What patterns did you notice? What's the plan for next sprint?"
+                  value={managerNotes}
+                  onChange={(e) => setManagerNotes(e.target.value)}
+                  className="min-h-32"
+                />
+                <p className="text-xs text-gray-500 mt-2">Last edited: Just now</p>
+              </CardContent>
+            </Card>
+          </div>
         </div>
 
         {/* AI Coaching Insights */}
@@ -399,85 +559,6 @@ const DeveloperView = () => {
             </div>
           </CardContent>
         </Card>
-
-        {/* Bottom Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* 1-on-1 Agenda */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span>1-on-1 Agenda</span>
-                <div className="flex space-x-2">
-                  <Button variant="ghost" size="sm">
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                  <Button variant="ghost" size="sm">
-                    <Download className="h-4 w-4" />
-                  </Button>
-                </div>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {oneOnOneTickets.length > 0 ? (
-                <div className="space-y-2">
-                  {oneOnOneTickets.map(ticket => (
-                    <div key={ticket.id} className="p-2 bg-gray-50 rounded">
-                      <p className="font-medium text-sm">{ticket.id}</p>
-                      <p className="text-xs text-gray-600">{ticket.title}</p>
-                      {ticket.daysBlocked > 0 && (
-                        <p className="text-xs text-red-600">Blocked {ticket.daysBlocked} days</p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-gray-500 italic">No tickets flagged for discussion</p>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Recent Activity */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Activity</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {recentActivity.map((activity, index) => (
-                  <div key={index} className="flex items-center space-x-3">
-                    <div className={`w-2 h-2 rounded-full ${
-                      activity.type === "completed" ? "bg-green-500" :
-                      activity.type === "blocked" ? "bg-red-500" :
-                      activity.type === "start" ? "bg-blue-500" : "bg-yellow-500"
-                    }`} />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium">{activity.event}</p>
-                      <p className="text-xs text-gray-600">{activity.ticket}</p>
-                      <p className="text-xs text-gray-400">{activity.date}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Manager Notes */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Manager Reflection Notes</CardTitle>
-              <CardDescription>Private coaching notes (auto-saved)</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Textarea
-                placeholder="What's holding them back? What patterns did you notice? What's the plan for next sprint?"
-                value={managerNotes}
-                onChange={(e) => setManagerNotes(e.target.value)}
-                className="min-h-32"
-              />
-              <p className="text-xs text-gray-500 mt-2">Last edited: Just now</p>
-            </CardContent>
-          </Card>
-        </div>
       </div>
     </TooltipProvider>
   );

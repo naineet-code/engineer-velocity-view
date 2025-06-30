@@ -1,396 +1,308 @@
-import React from "react";
+import React, { useState } from "react";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip as ChartTooltip,
-  PieChart,
-  Pie,
-  Cell,
-  ScatterChart,
-  Scatter
-} from "recharts";
-import {
-  ChartContainer,
-  ChartTooltipContent
-} from "@/components/ui/chart";
-import { Table, TableBody, TableCaption, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { TrendingUp, AlertTriangle, Users, MessageSquare, Brain } from "lucide-react";
-import AIRecommendationsPanel from "@/components/dashboard/AIRecommendationsPanel";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, PieChart, Pie, Cell, ResponsiveContainer, ScatterChart, Scatter } from "recharts";
+import { 
+  Calendar, 
+  TrendingUp, 
+  AlertTriangle, 
+  Clock, 
+  CheckCircle, 
+  XCircle,
+  RotateCcw,
+  Download,
+  FileText,
+  MessageSquare
+} from "lucide-react";
+import { AIRecommendationsPanel } from "@/components/dashboard/AIRecommendationsPanel";
+import { SprintComparison } from "@/components/dashboard/SprintComparison";
+import { RetrospectiveExport } from "@/components/dashboard/RetrospectiveExport";
 
-interface Ticket {
-  id: string;
-  title: string;
-  dev: string;
-  effortDays: number;
-  duration: number;
-  timeBlocked: number;
-  etaMissed: number;
-  status: string;
-  clarifications: number;
-  dropReason: string;
-}
+// Mock data
+const mockSprintData = {
+  sprintName: "Sprint 12",
+  startDate: "2024-01-01",
+  endDate: "2024-01-15",
+  teamVelocity: 15,
+  completedTickets: 12,
+  totalTickets: 15,
+  avgTicketAge: 3.5,
+  blockerSources: {
+    "Success Team": 3,
+    "Client": 1,
+    "Engineering": 2
+  },
+  etaAnalysis: {
+    missed: 2,
+    total: 15
+  },
+  developerPerformance: [
+    { name: "Sarah", completed: 4, etaOverruns: 1 },
+    { name: "Mike", completed: 3, etaOverruns: 0 },
+    { name: "Nidhi", completed: 5, etaOverruns: 2 }
+  ],
+  riskTickets: [
+    { id: "ENG-1235", title: "Dashboard Performance Optimization", daysOver: 2 },
+    { id: "ENG-1238", title: "API Integration", daysOver: 1 }
+  ],
+  blockerTrends: [
+    { source: "Success Team", daysBlocked: 5 },
+    { source: "Client", daysBlocked: 2 }
+  ],
+  actionItems: [
+    { description: "Improve estimation accuracy", owner: "Team", status: "Open" },
+    { description: "Address Success Team blocking issues", owner: "Engineering Lead", status: "In Progress" }
+  ]
+};
 
-interface KPICard {
-  title: string;
-  value: string | number;
-  change?: string;
-  icon: React.ComponentType<any>;
-}
-
-const mockTicketData: Ticket[] = [
-  {
-    id: "ENG-123",
-    title: "Implement user authentication",
-    dev: "Sarah",
-    effortDays: 5,
-    duration: 7,
-    timeBlocked: 1,
-    etaMissed: 2,
-    status: "Completed",
-    clarifications: 1,
-    dropReason: ""
-  },
-  {
-    id: "ENG-124",
-    title: "Optimize database queries",
-    dev: "Mike",
-    effortDays: 3,
-    duration: 5,
-    timeBlocked: 0,
-    etaMissed: 0,
-    status: "In Progress",
-    clarifications: 3,
-    dropReason: ""
-  },
-  {
-    id: "ENG-125",
-    title: "Refactor payment service",
-    dev: "Nidhi",
-    effortDays: 8,
-    duration: 10,
-    timeBlocked: 2,
-    etaMissed: 3,
-    status: "Blocked",
-    clarifications: 5,
-    dropReason: ""
-  },
-  {
-    id: "ENG-126",
-    title: "Implement logging",
-    dev: "Alex",
-    effortDays: 2,
-    duration: 4,
-    timeBlocked: 0,
-    etaMissed: 0,
-    status: "Code Review",
-    clarifications: 0,
-    dropReason: ""
-  },
-  {
-    id: "ENG-127",
-    title: "Design new API endpoints",
-    dev: "Sarah",
-    effortDays: 4,
-    duration: 6,
-    timeBlocked: 1,
-    etaMissed: 1,
-    status: "In Progress",
-    clarifications: 2,
-    dropReason: ""
-  },
-  {
-    id: "ENG-128",
-    title: "Fix UI bugs",
-    dev: "Mike",
-    effortDays: 1,
-    duration: 2,
-    timeBlocked: 0,
-    etaMissed: 0,
-    status: "Completed",
-    clarifications: 0,
-    dropReason: ""
-  },
-  {
-    id: "ENG-129",
-    title: "Update documentation",
-    dev: "Nidhi",
-    effortDays: 2,
-    duration: 3,
-    timeBlocked: 0,
-    etaMissed: 1,
-    status: "Not Started",
-    clarifications: 1,
-    dropReason: ""
-  },
-  {
-    id: "ENG-130",
-    title: "Implement search functionality",
-    dev: "Alex",
-    effortDays: 6,
-    duration: 8,
-    timeBlocked: 2,
-    etaMissed: 4,
-    status: "Dropped",
-    clarifications: 4,
-    dropReason: "Scope change"
-  }
+const sprintOptions = [
+  { value: "sprint-12", label: "Sprint 12 (Current)" },
+  { value: "sprint-11", label: "Sprint 11" },
+  { value: "sprint-10", label: "Sprint 10" }
 ];
 
-const kpiCards: KPICard[] = [
-  { title: "Tickets Completed", value: 15, change: "+3%", icon: TrendingUp },
-  { title: "Active Tickets", value: 8, icon: AlertTriangle },
-  { title: "Avg. ETA Missed", value: "2.1d", change: "-0.5d", icon: Users },
-  { title: "Clarification Loops", value: 23, change: "+12%", icon: MessageSquare },
-  { title: "Blocked Time", value: "15d", change: "+5d", icon: Brain },
-  { title: "Sprint Velocity", value: "42 SP", change: "+8 SP", icon: TrendingUp }
+const developerOptions = [
+  { value: "all", label: "All Developers" },
+  { value: "sarah", label: "Sarah" },
+  { value: "mike", label: "Mike" },
+  { value: "nidhi", label: "Nidhi" }
 ];
 
-const sprintData = [
-  { sprint: "S1", completed: 10, dropped: 2, inProgress: 5, blocked: 1 },
-  { sprint: "S2", completed: 12, dropped: 1, inProgress: 4, blocked: 2 },
-  { sprint: "S3", completed: 15, dropped: 0, inProgress: 3, blocked: 1 }
+const burndownData = [
+  { day: "Day 1", ideal: 15, actual: 15 },
+  { day: "Day 3", ideal: 13, actual: 14 },
+  { day: "Day 5", ideal: 10, actual: 11 },
+  { day: "Day 7", ideal: 8, actual: 9 },
+  { day: "Day 9", ideal: 6, actual: 5 },
+  { day: "Day 11", ideal: 4, actual: 4 },
+  { day: "Day 13", ideal: 2, actual: 3 },
+  { day: "Day 15", ideal: 0, actual: 0 }
 ];
 
 const blockerData = [
-  { name: "Success", value: 30, color: "#ef4444" },
-  { name: "Client", value: 25, color: "#f97316" },
-  { name: "Infra", value: 20, color: "#eab308" },
-  { name: "QA", value: 15, color: "#22c55e" },
-  { name: "Other", value: 10, color: "#6b7280" }
+  { source: "Success Team", tickets: 3, daysBlocked: 5 },
+  { source: "Client", tickets: 1, daysBlocked: 2 },
+  { source: "Engineering", tickets: 2, daysBlocked: 3 }
 ];
 
-const stageTimeData = [
-  { stage: "Clarification", days: 1.5 },
-  { stage: "Development", days: 4.2 },
-  { stage: "Tech QC", days: 0.8 },
-  { stage: "Business QC", days: 0.5 },
-  { stage: "Blocked", days: 2.1 }
+const actionItemsData = [
+  { description: "Improve estimation accuracy", owner: "Team", status: "Open" },
+  { description: "Address Success Team blocking issues", owner: "Engineering Lead", status: "In Progress" }
 ];
 
-const etaData = [
-  { eta: 5, actual: 6, status: "missed" },
-  { eta: 3, actual: 3, status: "onTrack" },
-  { eta: 8, actual: 10, status: "missed" },
-  { eta: 2, actual: 2, status: "onTrack" },
-  { eta: 6, actual: 4, status: "onTrack" },
-  { eta: 4, actual: 7, status: "missed" },
-  { eta: 7, actual: 7, status: "onTrack" },
-  { eta: 1, actual: 5, status: "dropped" }
-];
+const SprintAnalysis = () => {
+  const [selectedSprint, setSelectedSprint] = useState("sprint-12");
+  const [comparisonMode, setComparisonMode] = useState(false);
+  const [selectedDeveloper, setSelectedDeveloper] = useState("all");
 
-const chartConfig = {
-  completed: { label: "Completed", color: "#22c55e" },
-  dropped: { label: "Dropped", color: "#ef4444" },
-  inProgress: { label: "In Progress", color: "#3b82f6" },
-  blocked: { label: "Blocked", color: "#f59e0b" }
-};
+  const handleSprintChange = (sprintValue: string) => {
+    setSelectedSprint(sprintValue);
+  };
 
-const RetrospectiveExport = ({ ticketData, kpis }: { ticketData: Ticket[], kpis: KPICard[] }) => {
-  const handleExport = () => {
-    const data = {
-      kpis: kpis.map(kpi => ({ title: kpi.title, value: kpi.value })),
-      tickets: ticketData.map(ticket => ({
-        id: ticket.id,
-        title: ticket.title,
-        dev: ticket.dev,
-        status: ticket.status,
-        effortDays: ticket.effortDays,
-        duration: ticket.duration,
-        timeBlocked: ticket.timeBlocked,
-        etaMissed: ticket.etaMissed,
-        clarifications: ticket.clarifications,
-        dropReason: ticket.dropReason
-      }))
-    };
-
-    const jsonString = JSON.stringify(data, null, 2);
-    const blob = new Blob([jsonString], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "sprint_retrospective.json";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+  const handleDeveloperChange = (developerValue: string) => {
+    setSelectedDeveloper(developerValue);
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Retrospective Export</CardTitle>
-        <CardDescription>Download sprint data for offline analysis</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Button onClick={handleExport}>Export as JSON</Button>
-      </CardContent>
-    </Card>
-  );
-};
-
-const SprintComparison = () => {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Sprint Comparison</CardTitle>
-        <CardDescription>Compare key metrics across recent sprints</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <p className="text-sm text-gray-500 italic">Coming soon: Interactive sprint comparison charts</p>
-      </CardContent>
-    </Card>
-  );
-};
-
-const SprintAnalysis = () => {
-  return (
     <div className="container mx-auto p-6 space-y-6">
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        {kpiCards.map((kpi) => (
-          <Card key={kpi.title} className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">{kpi.title}</p>
-                <p className="text-2xl font-bold">{kpi.value}</p>
-                {kpi.change && (
-                  <p className={`text-xs ${kpi.change.startsWith('+') ? 'text-red-600' : 'text-green-600'}`}>
-                    {kpi.change}
-                  </p>
-                )}
-              </div>
-              <kpi.icon className="h-8 w-8 text-gray-400" />
-            </div>
-          </Card>
-        ))}
+      {/* Sprint Selector */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">Sprint Analysis</h1>
+          <p className="text-gray-600">Retrospective insights for continuous improvement</p>
+        </div>
+        <div className="flex items-center space-x-4">
+          <Select value={selectedSprint} onValueChange={setSelectedSprint}>
+            <SelectTrigger className="w-48">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="sprint-12">Sprint 12 (Current)</SelectItem>
+              <SelectItem value="sprint-11">Sprint 11</SelectItem>
+              <SelectItem value="sprint-10">Sprint 10</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button 
+            variant={comparisonMode ? "default" : "outline"}
+            onClick={() => setComparisonMode(!comparisonMode)}
+          >
+            Compare Sprints
+          </Button>
+        </div>
       </div>
 
-      {/* AI Recommendations Panel */}
-      <AIRecommendationsPanel ticketData={mockTicketData} sprintKPIs={kpiCards} />
+      {/* AI Recommendations */}
+      <AIRecommendationsPanel sprintData={mockSprintData} />
 
       {/* Sprint Comparison */}
-      <SprintComparison />
+      {comparisonMode && <SprintComparison />}
 
-      {/* Charts Grid */}
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="border shadow-sm">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600 mb-1">Team Velocity</p>
+                <p className="text-2xl font-bold text-blue-600">{mockSprintData.teamVelocity}</p>
+              </div>
+              <div className="p-3 rounded-lg bg-blue-100 text-blue-600">
+                <TrendingUp size={24} />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border shadow-sm">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600 mb-1">Completed Tickets</p>
+                <p className="text-2xl font-bold text-green-600">{mockSprintData.completedTickets} / {mockSprintData.totalTickets}</p>
+              </div>
+              <div className="p-3 rounded-lg bg-green-100 text-green-600">
+                <CheckCircle size={24} />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border shadow-sm">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600 mb-1">Avg Ticket Age</p>
+                <p className="text-2xl font-bold text-orange-600">{mockSprintData.avgTicketAge}d</p>
+              </div>
+              <div className="p-3 rounded-lg bg-orange-100 text-orange-600">
+                <Clock size={24} />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border shadow-sm">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600 mb-1">ETA Miss Rate</p>
+                <p className="text-2xl font-bold text-red-600">
+                  {((mockSprintData.etaAnalysis.missed / mockSprintData.etaAnalysis.total) * 100).toFixed(0)}%
+                </p>
+              </div>
+              <div className="p-3 rounded-lg bg-red-100 text-red-600">
+                <AlertTriangle size={24} />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Charts and Analysis */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Completion Chart */}
-        <Card>
+        {/* Burndown Chart */}
+        <Card className="border shadow-sm">
           <CardHeader>
-            <CardTitle>Sprint Completion</CardTitle>
-            <CardDescription>Tickets by status over time</CardDescription>
+            <CardTitle>Sprint Burndown</CardTitle>
+            <CardDescription>Ideal vs Actual progress</CardDescription>
           </CardHeader>
           <CardContent>
-            <ChartContainer config={chartConfig}>
-              <BarChart data={sprintData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="sprint" />
-                <YAxis />
-                <ChartTooltip content={<ChartTooltipContent />} />
-                <Bar dataKey="completed" stackId="a" fill="var(--color-completed)" />
-                <Bar dataKey="dropped" stackId="a" fill="var(--color-dropped)" />
-                <Bar dataKey="inProgress" stackId="a" fill="var(--color-in-progress)" />
-                <Bar dataKey="blocked" stackId="a" fill="var(--color-blocked)" />
-              </BarChart>
+            <ChartContainer>
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={burndownData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="day" />
+                  <YAxis />
+                  <ChartTooltip />
+                  <Line type="monotone" dataKey="ideal" stroke="#8884d8" strokeWidth={2} />
+                  <Line type="monotone" dataKey="actual" stroke="#82ca9d" strokeWidth={2} />
+                </LineChart>
+              </ResponsiveContainer>
             </ChartContainer>
           </CardContent>
         </Card>
 
-        {/* Blocker Analysis */}
-        <Card>
+        {/* Blocker Sources Chart */}
+        <Card className="border shadow-sm">
           <CardHeader>
             <CardTitle>Blocker Sources</CardTitle>
-            <CardDescription>Distribution of blocking reasons</CardDescription>
+            <CardDescription>Distribution of blocking issues</CardDescription>
           </CardHeader>
           <CardContent>
-            <ChartContainer config={{
-              success: { label: "Success", color: "#ef4444" },
-              client: { label: "Client", color: "#f97316" },
-              infra: { label: "Infrastructure", color: "#eab308" },
-              qa: { label: "QA", color: "#22c55e" }
-            }}>
-              <PieChart margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                <Pie
-                  data={blockerData}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                >
-                  {blockerData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <ChartTooltip />
-              </PieChart>
-            </ChartContainer>
-          </CardContent>
-        </Card>
-
-        {/* Cycle Time Breakdown */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Stage Time Breakdown</CardTitle>
-            <CardDescription>Average days per development stage</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ChartContainer config={{
-              clarification: { label: "Clarification", color: "#8b5cf6" },
-              development: { label: "Development", color: "#3b82f6" },
-              techQC: { label: "Tech QC", color: "#10b981" },
-              businessQC: { label: "Business QC", color: "#f59e0b" },
-              blocked: { label: "Blocked", color: "#ef4444" }
-            }}>
-              <BarChart data={stageTimeData} layout="horizontal" margin={{ top: 20, right: 30, left: 40, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis type="number" />
-                <YAxis dataKey="stage" type="category" width={80} />
-                <ChartTooltip content={<ChartTooltipContent />} />
-                <Bar dataKey="days" fill="#3b82f6" />
-              </BarChart>
-            </ChartContainer>
-          </CardContent>
-        </Card>
-
-        {/* ETA vs Actual Scatter Plot */}
-        <Card>
-          <CardHeader>
-            <CardTitle>ETA vs Actual Delivery</CardTitle>
-            <CardDescription>Estimation accuracy per ticket</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ChartContainer config={{
-              onTrack: { label: "On Track", color: "#22c55e" },
-              missed: { label: "Missed ETA", color: "#ef4444" },
-              dropped: { label: "Dropped", color: "#6b7280" }
-            }}>
-              <ScatterChart data={etaData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="eta" name="ETA (days)" />
-                <YAxis dataKey="actual" name="Actual (days)" />
-                <ChartTooltip content={<ChartTooltipContent />} />
-                <Scatter name="Tickets" data={etaData} fill="#3b82f6" />
-              </ScatterChart>
+            <ChartContainer>
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={blockerData}
+                    dataKey="tickets"
+                    nameKey="source"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={80}
+                    fill="#8884d8"
+                    label
+                  >
+                    {blockerData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={["#0088FE", "#00C49F", "#FFBB28", "#FF8042"][index % 4]} />
+                    ))}
+                  </Pie>
+                  <ChartTooltip />
+                </PieChart>
+              </ResponsiveContainer>
             </ChartContainer>
           </CardContent>
         </Card>
       </div>
 
-      {/* Retrospective Export */}
-      <RetrospectiveExport ticketData={mockTicketData} kpis={kpiCards} />
-
-      {/* Sprint Tickets Table */}
-      <Card>
+      {/* Developer Performance Table */}
+      <Card className="border shadow-sm">
         <CardHeader>
-          <CardTitle>Sprint Ticket Details</CardTitle>
-          <CardDescription>Complete ticket breakdown for retrospective analysis</CardDescription>
+          <CardTitle>Developer Performance</CardTitle>
+          <CardDescription>Individual contributions and ETA adherence</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Select value={selectedDeveloper} onValueChange={handleDeveloperChange}>
+            <SelectTrigger className="w-48 mb-4">
+              <SelectValue placeholder="Select Developer" />
+            </SelectTrigger>
+            <SelectContent>
+              {developerOptions.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Developer</TableHead>
+                <TableHead>Completed Tickets</TableHead>
+                <TableHead>ETA Overruns</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {mockSprintData.developerPerformance.map((dev) => (
+                <TableRow key={dev.name}>
+                  <TableCell>{dev.name}</TableCell>
+                  <TableCell>{dev.completed}</TableCell>
+                  <TableCell>{dev.etaOverruns}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {/* Risk Tickets */}
+      <Card className="border shadow-sm">
+        <CardHeader>
+          <CardTitle>Risk Tickets</CardTitle>
+          <CardDescription>Tickets at risk of missing ETA</CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
@@ -398,41 +310,82 @@ const SprintAnalysis = () => {
               <TableRow>
                 <TableHead>Ticket ID</TableHead>
                 <TableHead>Title</TableHead>
-                <TableHead>Developer</TableHead>
-                <TableHead>Effort</TableHead>
-                <TableHead>Duration</TableHead>
-                <TableHead>Time Blocked</TableHead>
-                <TableHead>ETA Missed</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Clarifications</TableHead>
-                <TableHead>Drop Reason</TableHead>
+                <TableHead>Days Over ETA</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {mockTicketData.map((ticket) => (
+              {mockSprintData.riskTickets.map((ticket) => (
                 <TableRow key={ticket.id}>
-                  <TableCell className="font-mono">{ticket.id}</TableCell>
-                  <TableCell className="max-w-xs truncate">{ticket.title}</TableCell>
-                  <TableCell>{ticket.dev}</TableCell>
-                  <TableCell>{ticket.effortDays}d</TableCell>
-                  <TableCell>{ticket.duration}d</TableCell>
-                  <TableCell className="text-red-600">{ticket.timeBlocked}d</TableCell>
-                  <TableCell className={ticket.etaMissed > 0 ? "text-red-600 font-medium" : "text-green-600"}>
-                    {ticket.etaMissed > 0 ? `+${ticket.etaMissed}d` : "On time"}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={ticket.status === "Completed" ? "default" : ticket.status === "Dropped" ? "destructive" : "secondary"}>
-                      {ticket.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{ticket.clarifications}</TableCell>
-                  <TableCell className="text-sm text-gray-600">{ticket.dropReason}</TableCell>
+                  <TableCell>{ticket.id}</TableCell>
+                  <TableCell>{ticket.title}</TableCell>
+                  <TableCell className="text-red-500">{ticket.daysOver}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
+
+      {/* Blocker Trends */}
+      <Card className="border shadow-sm">
+        <CardHeader>
+          <CardTitle>Blocker Trends</CardTitle>
+          <CardDescription>Recurring blocking issues</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Blocker Source</TableHead>
+                <TableHead>Tickets Blocked</TableHead>
+                <TableHead>Total Days Blocked</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {blockerData.map((blocker) => (
+                <TableRow key={blocker.source}>
+                  <TableCell>{blocker.source}</TableCell>
+                  <TableCell>{blocker.tickets}</TableCell>
+                  <TableCell>{blocker.daysBlocked}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {/* Action Items */}
+      <Card className="border shadow-sm">
+        <CardHeader>
+          <CardTitle>Action Items</CardTitle>
+          <CardDescription>Sprint retrospective action items</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Description</TableHead>
+                <TableHead>Owner</TableHead>
+                <TableHead>Status</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {actionItemsData.map((item) => (
+                <TableRow key={item.description}>
+                  <TableCell>{item.description}</TableCell>
+                  <TableCell>{item.owner}</TableCell>
+                  <TableCell>
+                    <Badge variant="secondary">{item.status}</Badge>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {/* Retrospective Export */}
+      <RetrospectiveExport sprintData={mockSprintData} />
     </div>
   );
 };
