@@ -8,6 +8,7 @@ import { Navigation } from "@/components/layout/Navigation";
 import Index from "./pages/Index";
 import SprintAnalysis from "./pages/SprintAnalysis";
 import DeveloperView from "./pages/DeveloperView";
+import TicketView from "./pages/TicketView";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -24,6 +25,8 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/sprint-analysis" element={<SprintAnalysis />} />
             <Route path="/developer-view" element={<DeveloperView />} />
+            <Route path="/ticket-view" element={<TicketView />} />
+            <Route path="/ticket-view/:ticketId" element={<TicketView />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

@@ -38,7 +38,7 @@ const navigationItems = [
     href: "/ticket-view",
     icon: Ticket,
     description: "Detailed ticket analytics",
-    disabled: true
+    disabled: false
   },
   {
     name: "Sprint Creation",
