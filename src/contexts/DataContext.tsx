@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { dummyTicketsData } from '@/data/dummyTickets';
 
@@ -43,6 +42,39 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [error, setError] = useState<string | null>(null);
   const [isUsingDummyData, setIsUsingDummyData] = useState(true);
 
+  const parseEventLog = (eventLogString: string): Array<{ status: string; timestamp: string; }> => {
+    if (!eventLogString || eventLogString.trim() === '') {
+      return [];
+    }
+    
+    try {
+      // Clean up the string - remove extra quotes and fix common issues
+      let cleanedString = eventLogString.trim();
+      
+      // Remove surrounding quotes if they exist
+      if (cleanedString.startsWith('"') && cleanedString.endsWith('"')) {
+        cleanedString = cleanedString.slice(1, -1);
+      }
+      
+      // Handle escaped quotes
+      cleanedString = cleanedString.replace(/""/g, '"');
+      
+      // Try to parse as JSON
+      const parsed = JSON.parse(cleanedString);
+      
+      // Ensure it's an array
+      if (Array.isArray(parsed)) {
+        return parsed;
+      } else {
+        console.warn('Event log is not an array:', parsed);
+        return [];
+      }
+    } catch (err) {
+      console.warn('Failed to parse event_log JSON:', eventLogString, err);
+      return [];
+    }
+  };
+
   const parseCSV = (csvText: string): TicketData[] => {
     const lines = csvText.split('\n').filter(line => line.trim());
     if (lines.length < 2) throw new Error('CSV must have header and data rows');
@@ -51,33 +83,42 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     const data: TicketData[] = [];
     
     for (let i = 1; i < lines.length; i++) {
-      const values = lines[i].split(',').map(v => v.trim().replace(/"/g, ''));
-      const row: any = {};
-      
-      headers.forEach((header, index) => {
-        if (values[index]) {
-          row[header] = values[index];
-        }
-      });
-      
-      // Parse specific fields
-      const ticket: TicketData = {
-        ticket_id: row.ticket_id || '',
-        title: row.title || '',
-        developer: row.developer || '',
-        created_at: row.created_at || '',
-        last_updated: row.last_updated || '',
-        status: row.status || '',
-        effort_points: parseInt(row.effort_points) || 0,
-        ETA: row.ETA || '',
-        priority: row.priority || '',
-        rank: parseInt(row.rank) || 0,
-        blocked_by: row.blocked_by || undefined,
-        resumed_at: row.resumed_at || undefined,
-        event_log: row.event_log ? JSON.parse(row.event_log) : []
-      };
-      
-      data.push(ticket);
+      try {
+        const values = lines[i].split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+        const row: any = {};
+        
+        headers.forEach((header, index) => {
+          if (values[index] !== undefined) {
+            row[header] = values[index];
+          }
+        });
+        
+        // Parse specific fields with validation
+        const ticket: TicketData = {
+          ticket_id: row.ticket_id || `TICKET-${i}`,
+          title: row.title || 'Untitled Ticket',
+          developer: row.developer || 'Unassigned',
+          created_at: row.created_at || new Date().toISOString(),
+          last_updated: row.last_updated || new Date().toISOString(),
+          status: row.status || 'Open',
+          effort_points: parseInt(row.effort_points) || 0,
+          ETA: row.ETA || '',
+          priority: row.priority || 'Medium',
+          rank: parseInt(row.rank) || 0,
+          blocked_by: row.blocked_by || undefined,
+          resumed_at: row.resumed_at || undefined,
+          event_log: parseEventLog(row.event_log || '[]')
+        };
+        
+        data.push(ticket);
+      } catch (err) {
+        console.warn(`Failed to parse row ${i}:`, err);
+        // Continue processing other rows instead of failing completely
+      }
+    }
+    
+    if (data.length === 0) {
+      throw new Error('No valid tickets could be parsed from the CSV');
     }
     
     return data;
