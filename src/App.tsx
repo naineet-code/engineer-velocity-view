@@ -6,7 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { DataProvider } from "@/contexts/DataContext";
 import { Sidebar } from "@/components/layout/Sidebar";
-import { TopNav } from "@/components/layout/TopNav";
+import { Header } from "@/components/layout/Header";
 import Index from "./pages/Index";
 import SprintAnalysis from "./pages/SprintAnalysis";
 import DeveloperView from "./pages/DeveloperView";
@@ -23,9 +23,9 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          <div className="min-h-screen bg-gray-50">
+          <div className="min-h-screen bg-gray-50 w-full">
             <Sidebar />
-            <TopNav />
+            <Header />
             <main className="ml-64 mt-16 p-8 bg-gray-50 min-h-screen">
               <div className="max-w-7xl mx-auto">
                 <Routes>

@@ -15,13 +15,18 @@ const Index = () => {
   const { tickets } = useData();
   const navigate = useNavigate();
   
-  // Initialize calculator first, with safety check
+  // Initialize calculator with safety checks
   const calculator = useMemo(() => {
     if (!tickets || tickets.length === 0) return null;
-    return new KPICalculator(tickets);
+    try {
+      return new KPICalculator(tickets);
+    } catch (error) {
+      console.error('Error initializing KPI calculator:', error);
+      return null;
+    }
   }, [tickets]);
 
-  // KPI Calculations with safety checks
+  // KPI Calculations with comprehensive safety checks
   const kpis = useMemo(() => {
     if (!calculator || !tickets || tickets.length === 0) {
       return {
@@ -34,17 +39,29 @@ const Index = () => {
       };
     }
     
-    return {
-      blockedTickets: calculator.getTotalBlockedTickets(),
-      avgDaysBlocked: calculator.getAverageDaysBlocked(),
-      etaRiskTickets: calculator.getETARiskTickets().length,
-      devsWithRisk: calculator.getDevelopersWithRisk(),
-      ticketsClosedYesterday: calculator.getTicketsClosedYesterday(),
-      ticketsClosed7d: calculator.getTicketsClosed7Days()
-    };
+    try {
+      return {
+        blockedTickets: calculator.getTotalBlockedTickets(),
+        avgDaysBlocked: calculator.getAverageDaysBlocked(),
+        etaRiskTickets: calculator.getETARiskTickets().length,
+        devsWithRisk: calculator.getDevelopersWithRisk(),
+        ticketsClosedYesterday: calculator.getTicketsClosedYesterday(),
+        ticketsClosed7d: calculator.getTicketsClosed7Days()
+      };
+    } catch (error) {
+      console.error('Error calculating KPIs:', error);
+      return {
+        blockedTickets: 0,
+        avgDaysBlocked: 0,
+        etaRiskTickets: 0,
+        devsWithRisk: 0,
+        ticketsClosedYesterday: 0,
+        ticketsClosed7d: 0
+      };
+    }
   }, [calculator, tickets]);
 
-  // Chart data with proper initialization order
+  // Chart data with proper error handling
   const chartData = useMemo(() => {
     if (!calculator || !tickets || tickets.length === 0) {
       return {
@@ -54,39 +71,48 @@ const Index = () => {
       };
     }
     
-    const statusDistribution = calculator.getStatusDistribution();
-    const timeDistribution = calculator.getTimeDistribution();
-    const riskTickets = calculator.getETARiskTickets();
-    
-    const getStatusColor = (status: string) => {
-      const colors: Record<string, string> = {
-        'Blocked': '#EF4444',
-        'In Development': '#3B82F6', 
-        'Review': '#FACC15',
-        'Closed': '#10B981',
-        'Clarification': '#EF4444',
-        'Business QC': '#F59E0B',
-        'Release Plan': '#8B5CF6'
+    try {
+      const statusDistribution = calculator.getStatusDistribution();
+      const timeDistribution = calculator.getTimeDistribution();
+      const riskTickets = calculator.getETARiskTickets();
+      
+      const getStatusColor = (status: string) => {
+        const colors: Record<string, string> = {
+          'Blocked': '#EF4444',
+          'In Development': '#3B82F6', 
+          'Review': '#FACC15',
+          'Closed': '#10B981',
+          'Clarification': '#EF4444',
+          'Business QC': '#F59E0B',
+          'Release Plan': '#8B5CF6'
+        };
+        return colors[status] || '#6B7280';
       };
-      return colors[status] || '#6B7280';
-    };
-    
-    return {
-      statusPie: Object.entries(statusDistribution).map(([status, count]) => ({
-        name: status,
-        value: count,
-        color: getStatusColor(status)
-      })),
-      timeBar: Object.entries(timeDistribution).map(([status, days]) => ({
-        status,
-        days: Math.round(days * 10) / 10
-      })),
-      riskTrend: riskTickets.slice(0, 10).map((ticket, index) => ({
-        name: ticket.ticket_id,
-        risk: 50 + Math.random() * 50,
-        effort: ticket.effort_points
-      }))
-    };
+      
+      return {
+        statusPie: Object.entries(statusDistribution).map(([status, count]) => ({
+          name: status,
+          value: count,
+          color: getStatusColor(status)
+        })),
+        timeBar: Object.entries(timeDistribution).map(([status, days]) => ({
+          status,
+          days: Math.round(days * 10) / 10
+        })),
+        riskTrend: riskTickets.slice(0, 10).map((ticket, index) => ({
+          name: ticket.ticket_id,
+          risk: 50 + Math.random() * 50,
+          effort: ticket.effort_points
+        }))
+      };
+    } catch (error) {
+      console.error('Error generating chart data:', error);
+      return {
+        statusPie: [],
+        timeBar: [],
+        riskTrend: []
+      };
+    }
   }, [calculator, tickets]);
 
   const chartConfig: ChartConfig = {
@@ -216,23 +242,29 @@ const Index = () => {
             <CardTitle className="text-lg font-semibold text-gray-900">Status Distribution</CardTitle>
           </CardHeader>
           <CardContent className="p-6 pt-2">
-            <ChartContainer config={chartConfig}>
-              <PieChart>
-                <Pie
-                  data={chartData.statusPie}
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={80}
-                  dataKey="value"
-                  nameKey="name"
-                >
-                  {chartData.statusPie.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ChartContainer>
+            {chartData.statusPie.length > 0 ? (
+              <ChartContainer config={chartConfig}>
+                <PieChart>
+                  <Pie
+                    data={chartData.statusPie}
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={80}
+                    dataKey="value"
+                    nameKey="name"
+                  >
+                    {chartData.statusPie.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ChartContainer>
+            ) : (
+              <div className="flex items-center justify-center h-48 text-gray-500">
+                No data to display
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -242,15 +274,21 @@ const Index = () => {
             <CardTitle className="text-lg font-semibold text-gray-900">Time Distribution</CardTitle>
           </CardHeader>
           <CardContent className="p-6 pt-2">
-            <ChartContainer config={chartConfig}>
-              <BarChart data={chartData.timeBar}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" />
-                <XAxis dataKey="status" />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="days" fill="#3B82F6" />
-              </BarChart>
-            </ChartContainer>
+            {chartData.timeBar.length > 0 ? (
+              <ChartContainer config={chartConfig}>
+                <BarChart data={chartData.timeBar}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" />
+                  <XAxis dataKey="status" />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar dataKey="days" fill="#3B82F6" />
+                </BarChart>
+              </ChartContainer>
+            ) : (
+              <div className="flex items-center justify-center h-48 text-gray-500">
+                No data to display
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -264,15 +302,21 @@ const Index = () => {
           </CardTitle>
         </CardHeader>
         <CardContent className="p-6 pt-2">
-          <ChartContainer config={chartConfig}>
-            <LineChart data={chartData.riskTrend}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" />
-              <XAxis dataKey="name" />
-              <YAxis />
-              <Tooltip />
-              <Line type="monotone" dataKey="risk" stroke="#EF4444" strokeWidth={2} />
-            </LineChart>
-          </ChartContainer>
+          {chartData.riskTrend.length > 0 ? (
+            <ChartContainer config={chartConfig}>
+              <LineChart data={chartData.riskTrend}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" />
+                <XAxis dataKey="name" />
+                <YAxis />
+                <Tooltip />
+                <Line type="monotone" dataKey="risk" stroke="#EF4444" strokeWidth={2} />
+              </LineChart>
+            </ChartContainer>
+          ) : (
+            <div className="flex items-center justify-center h-48 text-gray-500">
+              No risk data to display
+            </div>
+          )}
         </CardContent>
       </Card>
 

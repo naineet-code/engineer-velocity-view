@@ -5,8 +5,7 @@ import {
   TrendingUp, 
   User, 
   Ticket, 
-  Plus,
-  Calendar
+  Plus
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -72,10 +71,10 @@ export const Sidebar = () => {
                   : "text-gray-600 hover:bg-blue-50 hover:text-blue-600"
               )}
             >
-              <Icon className="h-5 w-5" />
-              <div>
-                <div>{item.name}</div>
-                <div className="text-xs text-gray-400">{item.description}</div>
+              <Icon className="h-5 w-5 flex-shrink-0" />
+              <div className="min-w-0">
+                <div className="truncate">{item.name}</div>
+                <div className="text-xs text-gray-400 truncate">{item.description}</div>
               </div>
             </Link>
           );
